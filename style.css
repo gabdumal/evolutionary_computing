@@ -1,0 +1,4 @@
+table > caption,
+table > tbody > tr > th {
+    font-weight: bold;
+} 
