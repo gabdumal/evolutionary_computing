@@ -605,7 +605,10 @@ def plot_3d_optimization(
             z=Z,
             colorscale="Viridis",
             opacity=0.78,
-            colorbar={"title": "Objective"},
+            colorbar={
+                "title": {"text": "Objective"},
+                "len": 0.8,
+            },
             name="Objective surface",
             hovertemplate=(
                 "x=%{x:.3f}<br>y=%{y:.3f}<br>objective=%{z:.3e}<extra></extra>"
