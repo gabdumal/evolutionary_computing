@@ -18,21 +18,19 @@ ARTIFACT_ROOT = "_artifacts"
 ALGORITHM_IMPORT_PATH = "niapy.algorithms.basic.CatSwarmOptimization"
 
 BASE_ALGORITHM_PARAMETERS = {
-    "population_size": 30,
-    "mixture_ratio": 0.1,
     "c1": 2.05,
     "smp": 3,
     "spc": True,
-    "cdc": 0.85,
-    "srd": 0.2,
-    "max_velocity": 1.9,
+    "cdc": 1.0,
 }
 
 # Keep this grid deliberately small for the first validation campaign.
 # The Cartesian product below produces 9 configurations.
 HYPERPARAMETER_GRID = {
-    "mixture_ratio": (0.1, 0.3, 0.5),
-    "c1": (1.0, 2.05, 3.0),
+    "population_size": (5, 10, 15, 30),
+    "mixture_ratio": (0.0, 0.05, 0.1, 0.2),
+    "max_velocity": (0.25, 0.5, 0.75, 1.0),
+    "srd": (0.4, 0.5, 0.6, 0.8, 1.0),
 }
 
 PROBLEMS = (
@@ -83,7 +81,7 @@ def main() -> None:
     execution_report = execute_experiment(
         experiment,
         artifact_root=ARTIFACT_ROOT,
-        max_workers=6,
+        max_workers=12,
     )
 
     print(execution_report)

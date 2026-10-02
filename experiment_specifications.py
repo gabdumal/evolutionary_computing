@@ -437,6 +437,7 @@ class ExperimentSpecification:
     algorithm: AlgorithmSpecification
     problems: tuple[ProblemSpecification, ...]
     parameter_grid: Mapping[str, Sequence[ParameterValue]] = field(default_factory=dict)
+    configurations: Sequence[ParameterSet] | None = None
     seeds: SeedSpecification = field(default_factory=SeedSpecification)
     termination: TerminationSpecification = field(
         default_factory=lambda: TerminationSpecification(
@@ -485,6 +486,12 @@ class ExperimentSpecification:
             normalized_problems,
         )
 
+        if self.configurations is not None and self.parameter_grid:
+            raise ValueError(
+                "parameter_grid and configurations are mutually exclusive; "
+                "specify only one configuration source."
+            )
+
         normalized_grid: dict[str, tuple[ParameterValue, ...]] = {}
 
         for parameter_name, values in self.parameter_grid.items():
@@ -531,6 +538,41 @@ class ExperimentSpecification:
             dict(sorted(normalized_grid.items())),
         )
 
+        if self.configurations is None:
+            normalized_configurations: tuple[dict[str, ParameterValue], ...] | None = (
+                None
+            )
+        else:
+            normalized_configurations = tuple(
+                _normalize_parameters(configuration)
+                for configuration in self.configurations
+            )
+
+            if not normalized_configurations:
+                raise ValueError(
+                    "configurations must contain at least one configuration "
+                    "when provided."
+                )
+
+            serialized_configurations = [
+                json.dumps(
+                    configuration,
+                    allow_nan=False,
+                    sort_keys=True,
+                    separators=(",", ":"),
+                )
+                for configuration in normalized_configurations
+            ]
+
+            if len(set(serialized_configurations)) != len(serialized_configurations):
+                raise ValueError("configurations must not contain duplicates.")
+
+        object.__setattr__(
+            self,
+            "configurations",
+            normalized_configurations,
+        )
+
         if self.description is not None and not self.description.strip():
             raise ValueError("description must contain text when provided.")
 
@@ -544,7 +586,10 @@ class ExperimentSpecification:
 
     @property
     def configuration_count(self) -> int:
-        """Return the number of Cartesian-product configurations."""
+        """Return the number of concrete algorithm configurations."""
+        if self.configurations is not None:
+            return len(self.configurations)
+
         count = 1
 
         for values in self.parameter_grid.values():
@@ -568,7 +613,18 @@ class ExperimentSpecification:
     def iter_algorithm_configurations(
         self,
     ) -> Iterator[AlgorithmConfiguration]:
-        """Yield configurations without materializing the Cartesian grid."""
+        """Yield each resolved algorithm configuration deterministically."""
+        if self.configurations is not None:
+            for parameters in self.configurations:
+                resolved_parameters = dict(self.algorithm.parameters)
+                resolved_parameters.update(deepcopy(parameters))
+                yield AlgorithmConfiguration(
+                    algorithm=self.algorithm,
+                    parameters=resolved_parameters,
+                )
+
+            return
+
         parameter_names = tuple(self.parameter_grid)
 
         if not parameter_names:
@@ -630,6 +686,13 @@ class ExperimentSpecification:
             "algorithm": self.algorithm.identity(),
             "problems": tuple(problem.identity() for problem in self.problems),
             "parameter_grid": self.parameter_grid,
+            **(
+                {
+                    "configurations": self.configurations,
+                }
+                if self.configurations is not None
+                else {}
+            ),
             "seeds": self.seeds.identity(),
             "termination": self.termination.identity(),
         }

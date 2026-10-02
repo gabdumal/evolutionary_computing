@@ -49,7 +49,7 @@ from validation_analysis import (
     validate_run_result,
 )
 
-SensitivityDesign: TypeAlias = Literal["single_parameter", "factorial"]
+SensitivityDesign: TypeAlias = Literal["single_parameter", "factorial", "explicit"]
 
 DEFAULT_PERFORMANCE_TOLERANCE: Final[float] = 1e-12
 
@@ -93,7 +93,7 @@ class SensitivityAnalysis:
         """Return sensitivity results for one configured parameter."""
         if parameter_name not in self.parameter_names:
             raise KeyError(
-                f"Parameter {parameter_name!r} is not part of the sensitivity grid."
+                f"Parameter {parameter_name!r} is not part of the analyzed experiment."
             )
 
         return self.parameter_table.loc[
@@ -108,19 +108,20 @@ def analyze_sensitivity(
     require_complete: bool = True,
     performance_tolerance: float = DEFAULT_PERFORMANCE_TOLERANCE,
 ) -> SensitivityAnalysis:
-    """Analyze parameter sensitivity from a completed experiment.
+    """Analyze a completed experiment deterministically.
 
-    ``expected_experiment`` is required deliberately. Sensitivity analysis
-    needs the declared Cartesian parameter grid to distinguish parameter
-    levels from fixed algorithm parameters and to verify that the available
-    artifacts correspond to the intended experiment.
+    Cartesian sensitivity experiments use ``parameter_grid``. Explicit
+    configuration experiments use ``configurations`` and are reported with
+    design ``"explicit"``; their parameter-level summaries are descriptive
+    and should not be interpreted as marginal factorial effects.
 
     By default every expected run must exist and be valid. Setting
     ``require_complete=False`` permits analysis of the valid subset, while the
     returned validation report still records missing or invalid runs.
     """
     _validate_performance_tolerance(performance_tolerance)
-    _validate_sensitivity_grid(expected_experiment)
+    _validate_sensitivity_specification(expected_experiment)
+    parameter_names = _get_analysis_parameter_names(expected_experiment)
 
     validation_report = validate_experiment(
         artifact_store,
@@ -147,7 +148,11 @@ def analyze_sensitivity(
             "No valid completed runs are available for sensitivity analysis."
         )
 
-    run_table = _create_run_table(analyzed_results, expected_experiment)
+    run_table = _create_run_table(
+        analyzed_results,
+        expected_experiment,
+        parameter_names=parameter_names,
+    )
     scenario_table = _create_scenario_table(
         analyzed_results,
         performance_tolerance=performance_tolerance,
@@ -155,22 +160,26 @@ def analyze_sensitivity(
     configuration_table = _create_configuration_table(
         scenario_table,
         expected_experiment,
+        parameter_names=parameter_names,
     )
     parameter_table = _create_parameter_table(
         configuration_table,
-        expected_experiment,
+        parameter_names=parameter_names,
     )
 
-    design = (
-        "single_parameter"
-        if len(expected_experiment.parameter_grid) == 1
-        else "factorial"
-    )
+    if expected_experiment.configurations is not None:
+        design: SensitivityDesign = "explicit"
+    else:
+        design = (
+            "single_parameter"
+            if len(expected_experiment.parameter_grid) == 1
+            else "factorial"
+        )
 
     return SensitivityAnalysis(
         experiment_id=expected_experiment.experiment_id,
         algorithm_name=expected_experiment.algorithm.display_name,
-        parameter_names=tuple(expected_experiment.parameter_grid),
+        parameter_names=parameter_names,
         design=design,
         completed_run_count=len(completed_results),
         analyzed_run_count=len(analyzed_results),
@@ -241,15 +250,23 @@ def create_configuration_comparison_table(
     return sensitivity_analysis.configuration_table.loc[:, columns].copy()
 
 
-def _validate_sensitivity_grid(
+def _validate_sensitivity_specification(
     experiment: ExperimentSpecification,
 ) -> None:
+    """Validate that the experiment has a supported analysis configuration."""
+    if experiment.configurations is not None:
+        if not experiment.configurations:
+            raise ValueError(
+                "Explicit configuration analysis requires at least one configuration."
+            )
+        return
+
     parameter_grid = experiment.parameter_grid
 
     if not parameter_grid:
         raise ValueError(
-            "Sensitivity analysis requires at least one parameter in "
-            "ExperimentSpecification.parameter_grid."
+            "Sensitivity analysis requires either parameter_grid or "
+            "explicit configurations in ExperimentSpecification."
         )
 
     single_level_parameters = tuple(
@@ -264,6 +281,20 @@ def _validate_sensitivity_grid(
             "Every sensitivity parameter must have at least two candidate "
             f"values; {names} has fewer than two."
         )
+
+
+def _get_analysis_parameter_names(
+    experiment: ExperimentSpecification,
+) -> tuple[str, ...]:
+    """Return parameters that should appear in analysis tables."""
+    if experiment.configurations is None:
+        return tuple(experiment.parameter_grid)
+
+    parameter_names: set[str] = set()
+    for configuration in experiment.configurations:
+        parameter_names.update(configuration)
+
+    return tuple(sorted(parameter_names))
 
 
 def _validate_performance_tolerance(tolerance: float) -> None:
@@ -318,9 +349,10 @@ def _select_analyzable_results(
 def _create_run_table(
     results: Iterable[ExperimentRunResult],
     experiment: ExperimentSpecification,
+    *,
+    parameter_names: tuple[str, ...],
 ) -> pd.DataFrame:
     records: list[dict[str, object]] = []
-    parameter_names = tuple(experiment.parameter_grid)
 
     for result in results:
         run = result.run_specification
@@ -460,11 +492,12 @@ def _create_scenario_table(
 def _create_configuration_table(
     scenario_table: pd.DataFrame,
     experiment: ExperimentSpecification,
+    *,
+    parameter_names: tuple[str, ...],
 ) -> pd.DataFrame:
     if scenario_table.empty:
         return pd.DataFrame()
 
-    parameter_names = tuple(experiment.parameter_grid)
     configuration_records: list[dict[str, object]] = []
 
     configuration_rows = scenario_table.groupby(
@@ -532,14 +565,15 @@ def _create_configuration_table(
 
 def _create_parameter_table(
     configuration_table: pd.DataFrame,
-    experiment: ExperimentSpecification,
+    *,
+    parameter_names: tuple[str, ...],
 ) -> pd.DataFrame:
     if configuration_table.empty:
         return pd.DataFrame()
 
     records: list[dict[str, object]] = []
 
-    for parameter_name in experiment.parameter_grid:
+    for parameter_name in parameter_names:
         parameter_key = f"{parameter_name}__key"
         grouped = configuration_table.groupby(
             parameter_key,

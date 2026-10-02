@@ -49,6 +49,7 @@ from experiment_specifications import (
 )
 
 DEFAULT_MAX_WORKERS: Final[int] = 6
+DEFAULT_PROGRESS_INTERVAL_SECONDS: Final[float] = 15.0
 
 FloatArray: TypeAlias = npt.NDArray[np.float64]
 IntArray: TypeAlias = npt.NDArray[np.int64]
@@ -429,11 +430,36 @@ def _submit_available_runs(
     return submitted
 
 
+def _print_execution_progress(
+    *,
+    total_run_count: int,
+    already_completed_count: int,
+    completed_run_count: int,
+    failed_run_count: int,
+    active_run_count: int,
+    elapsed_seconds: float,
+) -> None:
+    """Print one concise progress update from the parent process."""
+    processed_run_count = (
+        already_completed_count + completed_run_count + failed_run_count
+    )
+    percentage = 100.0 * processed_run_count / total_run_count
+
+    print(
+        f"Progress: {processed_run_count:,}/{total_run_count:,} "
+        f"({percentage:.1f}%) | completed={completed_run_count:,} "
+        f"| failed={failed_run_count:,} | active={active_run_count:,} "
+        f"| elapsed={elapsed_seconds:.1f}s",
+        flush=True,
+    )
+
+
 def execute_experiment(
     experiment: ExperimentSpecification,
     artifact_root: str | Path = "artifacts",
     *,
     max_workers: int = DEFAULT_MAX_WORKERS,
+    progress_interval_seconds: float = DEFAULT_PROGRESS_INTERVAL_SECONDS,
 ) -> ExperimentExecutionReport:
     """Execute all pending runs with incremental artifact persistence.
 
@@ -450,6 +476,14 @@ def execute_experiment(
 
     if max_workers <= 0:
         raise ValueError("max_workers must be greater than zero.")
+
+    if (
+        isinstance(progress_interval_seconds, bool)
+        or not isinstance(progress_interval_seconds, (int, float))
+        or not np.isfinite(float(progress_interval_seconds))
+        or progress_interval_seconds <= 0.0
+    ):
+        raise ValueError("progress_interval_seconds must be a finite positive number.")
 
     available_cpus = os.cpu_count() or 1
     worker_count = min(max_workers, available_cpus)
@@ -469,6 +503,15 @@ def execute_experiment(
     failed_run_ids: list[str] = []
 
     started_at = time.perf_counter()
+    last_progress_at = started_at
+
+    print(
+        f"Starting experiment {experiment.name!r}: "
+        f"{experiment.run_count:,} expected runs, "
+        f"{already_completed_count:,} already completed, "
+        f"{worker_count} workers.",
+        flush=True,
+    )
 
     executor = ProcessPoolExecutor(
         max_workers=worker_count,
@@ -481,6 +524,15 @@ def execute_experiment(
             pending_runs,
             futures,
             worker_count,
+        )
+
+        _print_execution_progress(
+            total_run_count=experiment.run_count,
+            already_completed_count=already_completed_count,
+            completed_run_count=completed_run_count,
+            failed_run_count=len(failed_run_ids),
+            active_run_count=len(futures),
+            elapsed_seconds=time.perf_counter() - started_at,
         )
 
         while futures:
@@ -519,6 +571,18 @@ def execute_experiment(
                     futures,
                     worker_count,
                 )
+
+                now = time.perf_counter()
+                if now - last_progress_at >= progress_interval_seconds:
+                    _print_execution_progress(
+                        total_run_count=experiment.run_count,
+                        already_completed_count=already_completed_count,
+                        completed_run_count=completed_run_count,
+                        failed_run_count=len(failed_run_ids),
+                        active_run_count=len(futures),
+                        elapsed_seconds=now - started_at,
+                    )
+                    last_progress_at = now
     except KeyboardInterrupt:
         for future in futures:
             future.cancel()
@@ -545,6 +609,15 @@ def execute_experiment(
 
     elapsed_seconds = time.perf_counter() - started_at
 
+    _print_execution_progress(
+        total_run_count=experiment.run_count,
+        already_completed_count=already_completed_count,
+        completed_run_count=completed_run_count,
+        failed_run_count=len(failed_run_ids),
+        active_run_count=0,
+        elapsed_seconds=elapsed_seconds,
+    )
+
     return ExperimentExecutionReport(
         experiment_id=experiment.experiment_id,
         expected_run_count=experiment.run_count,
@@ -559,6 +632,7 @@ def execute_experiment(
 
 __all__ = [
     "DEFAULT_MAX_WORKERS",
+    "DEFAULT_PROGRESS_INTERVAL_SECONDS",
     "ExperimentExecutionReport",
     "ExperimentRunExecutionError",
     "execute_experiment",

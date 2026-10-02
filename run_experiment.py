@@ -17,13 +17,13 @@ def main() -> None:
             import_path="niapy.algorithms.basic.CatSwarmOptimization",
             parameters={
                 "population_size": 30,
-                "mixture_ratio": 0.1,
+                "mixture_ratio": 0.05,
                 "c1": 2.05,
                 "smp": 3,
                 "spc": True,
-                "cdc": 0.85,
-                "srd": 0.2,
-                "max_velocity": 1.9,
+                "cdc": 1.0,
+                "srd": 0.8,
+                "max_velocity": 0.5,
             },
         ),
         problems=(
@@ -42,7 +42,7 @@ def main() -> None:
     report = execute_experiment(
         experiment,
         artifact_root="_artifacts",
-        max_workers=6,
+        max_workers=12,
     )
 
     print(report)

@@ -3,13 +3,15 @@ from __future__ import annotations
 """Run and persist deterministic sensitivity analysis for the CSO experiment."""
 
 import argparse
+import importlib
 import json
+from collections.abc import Callable
 from pathlib import Path
 
 import pandas as pd
 
 from experiment_artifacts import ExperimentArtifactStore
-from run_validation import create_validation_experiment
+from experiment_specifications import ExperimentSpecification
 from sensitivity_analysis import (
     analyze_sensitivity,
     create_configuration_comparison_table,
@@ -21,7 +23,16 @@ DEFAULT_ARTIFACT_ROOT = "_artifacts"
 
 def main() -> None:
     arguments = _parse_arguments()
-    experiment = create_validation_experiment()
+    experiment_factory = _load_experiment_factory(
+        arguments.experiment_module,
+        arguments.experiment_factory,
+    )
+    experiment = experiment_factory()
+    if not isinstance(experiment, ExperimentSpecification):
+        raise SystemExit(
+            f"{arguments.experiment_module}.{arguments.experiment_factory} "
+            "did not return an ExperimentSpecification."
+        )
     artifact_store = ExperimentArtifactStore(
         arguments.artifact_root,
         experiment,
@@ -114,11 +125,51 @@ def _parse_arguments() -> argparse.Namespace:
         help="Root directory containing experiment artifacts.",
     )
     parser.add_argument(
+        "--experiment-module",
+        default="run_validation",
+        help="Python module containing the experiment factory.",
+    )
+    parser.add_argument(
+        "--experiment-factory",
+        default="create_validation_experiment",
+        help="Factory function that returns the ExperimentSpecification.",
+    )
+    parser.add_argument(
         "--allow-incomplete",
         action="store_true",
         help="Analyze the valid completed subset instead of requiring all runs.",
     )
     return parser.parse_args()
+
+
+def _load_experiment_factory(
+    module_name: str,
+    factory_name: str,
+) -> Callable[[], ExperimentSpecification]:
+    """Load an experiment factory without hard-coding one campaign."""
+    try:
+        module = importlib.import_module(module_name)
+    except ImportError as exc:
+        raise SystemExit(
+            f"Could not import experiment module {module_name!r}: {exc}"
+        ) from exc
+
+    factory = getattr(module, factory_name, None)
+    if not callable(factory):
+        raise SystemExit(
+            f"Experiment factory {module_name}.{factory_name} is not callable."
+        )
+
+    def typed_factory() -> ExperimentSpecification:
+        result = factory()
+        if not isinstance(result, ExperimentSpecification):
+            raise TypeError(
+                f"{module_name}.{factory_name} did not return an "
+                "ExperimentSpecification."
+            )
+        return result
+
+    return typed_factory
 
 
 def _print_parameter_effects(parameter_table: pd.DataFrame) -> None:
