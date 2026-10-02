@@ -4,6 +4,7 @@ matplotlib>=3.11
 niapy>=2.7.1
 notebook>=7.0
 numpy>=2.5
+pandas>=3.0.6
 plotly-stubs>=0.1.4
 plotly>=7.1.0
 scikit-learn>=1.9
