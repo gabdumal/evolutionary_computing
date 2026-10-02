@@ -264,6 +264,8 @@ def _convergence_arrays(
             [final_value],
             dtype=np.float64,
         )
+    elif int(evaluations[-1]) == int(task.evals):
+        values[-1] = final_value
     elif not np.isclose(
         float(values[-1]),
         final_value,
@@ -295,6 +297,9 @@ def execute_single_run(
     algorithm = _create_algorithm(run)
     task = _create_task(run)
 
+    final_solution: object
+    final_fitness: object
+
     final_solution, final_fitness = algorithm.run(task)
 
     if algorithm.bad_run():
@@ -318,7 +323,6 @@ def execute_single_run(
         raise ExperimentRunExecutionError("NiaPy returned a non-numeric final fitness.")
 
     final_value = float(final_fitness)
-
     solution = _solution_to_tuple(
         final_solution,
         run.dimension,
@@ -377,7 +381,7 @@ def _submit_available_runs(
 
 def execute_experiment(
     experiment: ExperimentSpecification,
-    artifact_root: str | Path = "_artifacts",
+    artifact_root: str | Path = "artifacts",
     *,
     max_workers: int = DEFAULT_MAX_WORKERS,
 ) -> ExperimentExecutionReport:

@@ -190,15 +190,13 @@ class ExperimentRunResult:
         if len(evaluations) == 0:
             raise ValueError("A completed run must contain convergence data.")
 
-        if np.any(evaluations < 0):
+        if np.any(evaluations <= 0):
             raise ValueError(
-                "convergence_evaluations must not contain negative values."
+                "convergence_evaluations must contain only positive values."
             )
 
-        if np.any(np.diff(evaluations) < 0):
-            raise ValueError(
-                "convergence_evaluations must be monotonically increasing."
-            )
+        if np.any(np.diff(evaluations) <= 0):
+            raise ValueError("convergence_evaluations must be strictly increasing.")
 
         if not np.all(np.isfinite(values)):
             raise ValueError("convergence_values must contain only finite values.")
@@ -431,44 +429,188 @@ def _parse_json_int(
     return value
 
 
+def _parse_json_float(
+    value: object,
+    *,
+    field_name: str,
+) -> float:
+    if not isinstance(value, (int, float)) or isinstance(value, bool):
+        raise TypeError(f"{field_name} must be a number.")
+
+    result = float(value)
+
+    if not math.isfinite(result):
+        raise ValueError(f"{field_name} must be finite.")
+
+    return result
+
+
+def _parse_json_bool(
+    value: object,
+    *,
+    field_name: str,
+) -> bool:
+    if not isinstance(value, bool):
+        raise TypeError(f"{field_name} must be boolean.")
+
+    return value
+
+
+def _parse_json_mapping(
+    value: object,
+    *,
+    field_name: str,
+) -> dict[str, object]:
+    if not isinstance(value, dict):
+        raise TypeError(f"{field_name} must be a JSON object.")
+
+    if not all(isinstance(key, str) for key in value):
+        raise ValueError(f"{field_name} must have string keys.")
+
+    return value
+
+
+def _parse_algorithm_specification(
+    payload: Mapping[str, object],
+) -> AlgorithmSpecification:
+    parameters = _parse_json_mapping(
+        payload.get("parameters", {}),
+        field_name="algorithm.parameters",
+    )
+
+    return AlgorithmSpecification(
+        import_path=_parse_json_string(
+            payload.get("import_path"),
+            field_name="algorithm.import_path",
+        ),
+        name=(
+            None
+            if payload.get("name") is None
+            else _parse_json_string(
+                payload.get("name"),
+                field_name="algorithm.name",
+            )
+        ),
+        parameters=cast(
+            Mapping[str, ParameterValue],
+            parameters,
+        ),
+    )
+
+
+def _parse_problem_specification(
+    payload: Mapping[str, object],
+) -> ProblemSpecification:
+    raw_dimensions = payload.get("dimensions")
+
+    if not isinstance(raw_dimensions, list):
+        raise TypeError("problem.dimensions must be a JSON array.")
+
+    dimensions = tuple(
+        _parse_json_int(
+            dimension,
+            field_name="problem.dimensions",
+        )
+        for dimension in raw_dimensions
+    )
+
+    raw_optimization = payload.get("optimization")
+    if raw_optimization not in {"minimize", "maximize"}:
+        raise ValueError("problem.optimization must be 'minimize' or 'maximize'.")
+
+    parameters = _parse_json_mapping(
+        payload.get("parameters", {}),
+        field_name="problem.parameters",
+    )
+
+    raw_import_path = payload.get("import_path")
+    if raw_import_path is not None and not isinstance(raw_import_path, str):
+        raise ValueError("problem.import_path must be a string or null.")
+
+    return ProblemSpecification(
+        name=_parse_json_string(
+            payload.get("name"),
+            field_name="problem.name",
+        ),
+        dimensions=dimensions,
+        import_path=raw_import_path,
+        parameters=cast(
+            Mapping[str, ParameterValue],
+            parameters,
+        ),
+        optimization=cast(
+            Literal["minimize", "maximize"],
+            raw_optimization,
+        ),
+    )
+
+
+def _parse_termination_specification(
+    payload: Mapping[str, object],
+) -> TerminationSpecification:
+    raw_max_evaluations = payload.get("max_evaluations")
+    raw_max_iterations = payload.get("max_iterations")
+    raw_cutoff_value = payload.get("cutoff_value")
+
+    return TerminationSpecification(
+        max_evaluations=(
+            None
+            if raw_max_evaluations is None
+            else _parse_json_int(
+                raw_max_evaluations,
+                field_name="termination.max_evaluations",
+            )
+        ),
+        max_iterations=(
+            None
+            if raw_max_iterations is None
+            else _parse_json_int(
+                raw_max_iterations,
+                field_name="termination.max_iterations",
+            )
+        ),
+        cutoff_value=(
+            None
+            if raw_cutoff_value is None
+            else _parse_json_float(
+                raw_cutoff_value,
+                field_name="termination.cutoff_value",
+            )
+        ),
+        enable_logging=_parse_json_bool(
+            payload.get("enable_logging", False),
+            field_name="termination.enable_logging",
+        ),
+    )
+
+
 def _parse_run_specification(
     payload: _RunArtifact,
 ) -> ExperimentRunSpecification:
     configuration_payload = payload["configuration"]
-    problem_payload = payload["problem"]
-    termination_payload = payload["termination"]
 
-    algorithm_payload = configuration_payload["algorithm"]
-
-    algorithm = AlgorithmSpecification(
-        import_path=algorithm_payload["import_path"],
-        name=algorithm_payload["name"],
-        parameters=algorithm_payload["parameters"],
+    algorithm = _parse_algorithm_specification(
+        configuration_payload["algorithm"],
     )
-
     configuration = AlgorithmConfiguration(
         algorithm=algorithm,
         parameters=configuration_payload["parameters"],
     )
 
+    persisted_configuration_id = payload["configuration_id"]
+    if persisted_configuration_id != configuration.configuration_id:
+        raise ValueError(
+            "The persisted configuration_id does not match the "
+            "reconstructed algorithm configuration."
+        )
+
     return ExperimentRunSpecification(
         experiment_id=payload["experiment_id"],
         configuration=configuration,
-        problem=ProblemSpecification(
-            name=problem_payload["name"],
-            dimensions=tuple(problem_payload["dimensions"]),
-            import_path=problem_payload["import_path"],
-            parameters=problem_payload["parameters"],
-            optimization=problem_payload["optimization"],
-        ),
+        problem=_parse_problem_specification(payload["problem"]),
         dimension=payload["dimension"],
         seed=payload["seed"],
-        termination=TerminationSpecification(
-            max_evaluations=termination_payload["max_evaluations"],
-            max_iterations=termination_payload["max_iterations"],
-            cutoff_value=termination_payload["cutoff_value"],
-            enable_logging=termination_payload["enable_logging"],
-        ),
+        termination=_parse_termination_specification(payload["termination"]),
     )
 
 

@@ -121,6 +121,12 @@ class AlgorithmSpecification:
 
         if self.name is not None:
             _validate_non_empty_name(self.name, "name")
+        else:
+            object.__setattr__(
+                self,
+                "name",
+                self.import_path.rsplit(".", maxsplit=1)[-1],
+            )
 
     @classmethod
     def from_callable(

@@ -141,7 +141,7 @@ def validate_experiment(
 
     try:
         manifest = artifact_store.load_manifest()
-    except Exception as error:
+    except Exception as error:  # noqa: BLE001
         issues.append(
             ValidationIssue(
                 severity="error",
@@ -184,7 +184,7 @@ def validate_experiment(
 
     try:
         completed_run_ids = tuple(sorted(artifact_store.completed_run_ids()))
-    except Exception as error:
+    except Exception as error:  # noqa: BLE001
         issues.append(
             ValidationIssue(
                 severity="error",
@@ -257,7 +257,7 @@ def validate_experiment(
     for run_id in completed_run_ids:
         try:
             run_result = artifact_store.load_run_result(run_id)
-        except Exception as error:
+        except Exception as error:  # noqa: BLE001
             issues.append(
                 ValidationIssue(
                     severity="error",
@@ -587,7 +587,7 @@ def _validate_run_specification_against_expected(
             )
         )
 
-    if actual.problem != expected.problem:
+    if actual.problem.identity() != expected.problem.identity():
         issues.append(
             ValidationIssue(
                 severity="error",
@@ -600,7 +600,7 @@ def _validate_run_specification_against_expected(
             )
         )
 
-    if actual.configuration != expected.configuration:
+    if actual.configuration_id != expected.configuration_id:
         issues.append(
             ValidationIssue(
                 severity="error",
@@ -613,7 +613,7 @@ def _validate_run_specification_against_expected(
             )
         )
 
-    if actual.termination != expected.termination:
+    if actual.termination.identity() != expected.termination.identity():
         issues.append(
             ValidationIssue(
                 severity="error",
@@ -868,20 +868,19 @@ def _validate_convergence(
             )
         )
 
-    if termination.max_evaluations is not None and _is_positive_integer(
-        evaluations[-1]
+    if (
+        termination.max_evaluations is not None
+        and _is_positive_integer(evaluations[-1])
+        and int(evaluations[-1]) > termination.max_evaluations
     ):
-        if int(evaluations[-1]) > termination.max_evaluations:
-            issues.append(
-                ValidationIssue(
-                    severity="error",
-                    category="convergence",
-                    message=(
-                        "Convergence history exceeds the configured max_evaluations."
-                    ),
-                    run_id=run_id,
-                )
+        issues.append(
+            ValidationIssue(
+                severity="error",
+                category="convergence",
+                message=("Convergence history exceeds the configured max_evaluations."),
+                run_id=run_id,
             )
+        )
 
     finite_values = all(_is_finite_real(value) for value in values)
     if len(values) >= 2 and finite_values:
