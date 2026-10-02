@@ -377,7 +377,7 @@ def _submit_available_runs(
 
 def execute_experiment(
     experiment: ExperimentSpecification,
-    artifact_root: str | Path = "artifacts",
+    artifact_root: str | Path = "_artifacts",
     *,
     max_workers: int = DEFAULT_MAX_WORKERS,
 ) -> ExperimentExecutionReport:
