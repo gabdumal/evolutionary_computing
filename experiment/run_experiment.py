@@ -1,54 +1,55 @@
-from experiment_artifacts import ExperimentArtifactStore
-from experiment_execution import execute_experiment
+from experiment_artifacts import DEFAULT_ARTIFACT_ROOT, ExperimentArtifactStore
+from experiment_execution import DEFAULT_MAX_WORKERS, execute_experiment
 from experiment_specifications import (
+    DEFAULT_PARAMETERS_FOR_CSO,
+    DEFAULT_PROBLEMS,
     AlgorithmSpecification,
     ExperimentSpecification,
-    ProblemSpecification,
     SeedSpecification,
     TerminationSpecification,
 )
 from validation_analysis import validate_experiment
+
+ARTIFACT_ROOT = DEFAULT_ARTIFACT_ROOT
+
+ALGORITHM_IMPORT_PATH = "niapy.algorithms.basic.CatSwarmOptimization"
+
+
+PROBLEMS = DEFAULT_PROBLEMS
+
+SEEDS = SeedSpecification(
+    replications=3,
+)
+
+TERMINATION = TerminationSpecification(
+    max_evaluations=10_000,
+)
 
 
 def main() -> None:
     experiment = ExperimentSpecification(
         name="cat-swarm-baseline",
         algorithm=AlgorithmSpecification(
-            import_path="niapy.algorithms.basic.CatSwarmOptimization",
+            import_path=ALGORITHM_IMPORT_PATH,
             parameters={
-                "population_size": 30,
-                "mixture_ratio": 0.05,
-                "c1": 2.05,
-                "smp": 3,
-                "spc": True,
-                "cdc": 1.0,
-                "srd": 0.8,
-                "max_velocity": 0.5,
+                **DEFAULT_PARAMETERS_FOR_CSO,
             },
         ),
-        problems=(
-            ProblemSpecification("Sphere", (10, 100)),
-            ProblemSpecification("Rastrigin", (10, 100)),
-            ProblemSpecification("Step", (10, 100)),
-        ),
-        seeds=SeedSpecification(
-            replications=5,
-        ),
-        termination=TerminationSpecification(
-            max_evaluations=10_000,
-        ),
+        problems=PROBLEMS,
+        seeds=SEEDS,
+        termination=TERMINATION,
     )
 
     report = execute_experiment(
         experiment,
-        artifact_root="_artifacts",
-        max_workers=12,
+        artifact_root=ARTIFACT_ROOT,
+        max_workers=DEFAULT_MAX_WORKERS,
     )
 
     print(report)
 
     artifact_store = ExperimentArtifactStore(
-        "_artifacts",
+        ARTIFACT_ROOT,
         experiment,
     )
 

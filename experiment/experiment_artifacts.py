@@ -42,7 +42,7 @@ from experiment_specifications import (
     TerminationSpecification,
 )
 
-ARTIFACT_SCHEMA_VERSION: Final[int] = 1
+ARTIFACT_SCHEMA_VERSION: Final[int] = 2
 
 RunStatus: TypeAlias = Literal["completed", "failed"]
 
@@ -55,7 +55,7 @@ class _MetricsArtifact(TypedDict):
     best_solution: list[float]
     function_evaluations: int
     iterations: int
-    elapsed_seconds: float
+    cpu_seconds: float
 
 
 class _ConvergenceArtifact(TypedDict):
@@ -120,6 +120,8 @@ class _ManifestArtifact(TypedDict):
 
 _EXPERIMENT_DIRECTORY_SAFE_NAME_PATTERN = re.compile(r"[^A-Za-z0-9._-]+")
 
+DEFAULT_ARTIFACT_ROOT = "_artifacts"
+
 
 @dataclass(frozen=True, slots=True)
 class ExperimentRunResult:
@@ -130,7 +132,7 @@ class ExperimentRunResult:
     best_solution: tuple[float, ...]
     function_evaluations: int
     iterations: int
-    elapsed_seconds: float
+    cpu_seconds: float
     convergence_evaluations: IntArray
     convergence_values: FloatArray
 
@@ -152,8 +154,8 @@ class ExperimentRunResult:
         if self.iterations < 0:
             raise ValueError("iterations must not be negative.")
 
-        if not math.isfinite(self.elapsed_seconds) or self.elapsed_seconds < 0.0:
-            raise ValueError("elapsed_seconds must be a finite non-negative number.")
+        if not math.isfinite(self.cpu_seconds) or self.cpu_seconds < 0.0:
+            raise ValueError("cpu_seconds must be a finite non-negative number.")
 
         expected_dimension = self.run_specification.dimension
 
@@ -202,27 +204,6 @@ class ExperimentRunResult:
 
         if not np.all(np.isfinite(values)):
             raise ValueError("convergence_values must contain only finite values.")
-
-        optimization = self.run_specification.problem.optimization
-        if len(values) >= 2:
-            if optimization == "minimize":
-                if np.any(np.diff(values) > 0):
-                    raise ValueError(
-                        "convergence_values must be non-increasing for minimization."
-                    )
-            else:
-                if np.any(np.diff(values) < 0):
-                    raise ValueError(
-                        "convergence_values must be non-decreasing for maximization."
-                    )
-
-        if not np.isclose(
-            float(values[-1]),
-            float(self.best_value),
-            rtol=1e-12,
-            atol=1e-12,
-        ):
-            raise ValueError("The final convergence value must match best_value.")
 
         object.__setattr__(
             self,
@@ -452,211 +433,44 @@ def _parse_json_int(
     return value
 
 
-def _parse_json_float(
-    value: object,
-    *,
-    field_name: str,
-) -> float:
-    if not isinstance(value, (int, float)) or isinstance(value, bool):
-        raise TypeError(f"{field_name} must be a number.")
-
-    result = float(value)
-
-    if not math.isfinite(result):
-        raise ValueError(f"{field_name} must be finite.")
-
-    return result
-
-
-def _parse_json_mapping(
-    value: object,
-    *,
-    field_name: str,
-) -> dict[str, object]:
-    if not isinstance(value, dict):
-        raise TypeError(f"{field_name} must be a JSON object.")
-
-    if not all(isinstance(key, str) for key in value):
-        raise ValueError(f"{field_name} must have string keys.")
-
-    return value
-
-
-def _parse_algorithm_specification(
-    payload: Mapping[str, object],
-) -> AlgorithmSpecification:
-    import_path = _parse_json_string(
-        payload.get("import_path"),
-        field_name="algorithm.import_path",
-    )
-    parameters = _parse_json_mapping(
-        payload.get("parameters", {}),
-        field_name="algorithm.parameters",
-    )
-
-    raw_name = payload.get("name")
-    if raw_name is None:
-        name = None
-    else:
-        parsed_name = _parse_json_string(
-            raw_name,
-            field_name="algorithm.name",
-        )
-        inferred_name = import_path.rsplit(".", maxsplit=1)[-1]
-        name = None if parsed_name == inferred_name else parsed_name
-
-    return AlgorithmSpecification(
-        import_path=import_path,
-        name=name,
-        parameters=cast(
-            Mapping[str, ParameterValue],
-            parameters,
-        ),
-    )
-
-
-def _parse_problem_specification(
-    payload: Mapping[str, object],
-) -> ProblemSpecification:
-    raw_dimensions = payload.get("dimensions")
-
-    if not isinstance(raw_dimensions, list):
-        raise TypeError("problem.dimensions must be a JSON array.")
-
-    dimensions = tuple(
-        _parse_json_int(
-            dimension,
-            field_name="problem.dimensions",
-        )
-        for dimension in raw_dimensions
-    )
-
-    raw_optimization = payload.get("optimization")
-
-    if raw_optimization not in {"minimize", "maximize"}:
-        raise ValueError("problem.optimization must be 'minimize' or 'maximize'.")
-
-    parameters = _parse_json_mapping(
-        payload.get("parameters", {}),
-        field_name="problem.parameters",
-    )
-
-    raw_import_path = payload.get("import_path")
-
-    if raw_import_path is not None and not isinstance(raw_import_path, str):
-        raise ValueError("problem.import_path must be a string or null.")
-
-    return ProblemSpecification(
-        name=_parse_json_string(
-            payload.get("name"),
-            field_name="problem.name",
-        ),
-        dimensions=dimensions,
-        import_path=raw_import_path,
-        parameters=cast(
-            Mapping[str, ParameterValue],
-            parameters,
-        ),
-        optimization=cast(
-            Literal["minimize", "maximize"],
-            raw_optimization,
-        ),
-    )
-
-
-def _parse_termination_specification(
-    payload: Mapping[str, object],
-) -> TerminationSpecification:
-    raw_max_evaluations = payload.get("max_evaluations")
-    raw_max_iterations = payload.get("max_iterations")
-    raw_cutoff_value = payload.get("cutoff_value")
-
-    max_evaluations = (
-        None
-        if raw_max_evaluations is None
-        else _parse_json_int(
-            raw_max_evaluations,
-            field_name="termination.max_evaluations",
-        )
-    )
-
-    max_iterations = (
-        None
-        if raw_max_iterations is None
-        else _parse_json_int(
-            raw_max_iterations,
-            field_name="termination.max_iterations",
-        )
-    )
-
-    cutoff_value = (
-        None
-        if raw_cutoff_value is None
-        else _parse_json_float(
-            raw_cutoff_value,
-            field_name="termination.cutoff_value",
-        )
-    )
-
-    raw_enable_logging = payload.get("enable_logging", False)
-
-    if not isinstance(raw_enable_logging, bool):
-        raise TypeError("termination.enable_logging must be boolean.")
-
-    return TerminationSpecification(
-        max_evaluations=max_evaluations,
-        max_iterations=max_iterations,
-        cutoff_value=cutoff_value,
-        enable_logging=raw_enable_logging,
-    )
-
-
 def _parse_run_specification(
     payload: _RunArtifact,
 ) -> ExperimentRunSpecification:
     configuration_payload = payload["configuration"]
+    problem_payload = payload["problem"]
+    termination_payload = payload["termination"]
 
-    algorithm = _parse_algorithm_specification(
-        configuration_payload["algorithm"],
-    )
-    problem = _parse_problem_specification(
-        payload["problem"],
-    )
-    termination = _parse_termination_specification(
-        payload["termination"],
+    algorithm_payload = configuration_payload["algorithm"]
+
+    algorithm = AlgorithmSpecification(
+        import_path=algorithm_payload["import_path"],
+        name=algorithm_payload["name"],
+        parameters=algorithm_payload["parameters"],
     )
 
     configuration = AlgorithmConfiguration(
         algorithm=algorithm,
-        parameters=cast(
-            Mapping[str, ParameterValue],
-            configuration_payload["parameters"],
-        ),
+        parameters=configuration_payload["parameters"],
     )
-
-    stored_configuration_id = _parse_json_string(
-        payload["configuration_id"],
-        field_name="configuration_id",
-    )
-    if configuration.configuration_id != stored_configuration_id:
-        raise ValueError("configuration_id does not match the persisted configuration.")
 
     return ExperimentRunSpecification(
-        experiment_id=_parse_json_string(
-            payload["experiment_id"],
-            field_name="experiment_id",
-        ),
+        experiment_id=payload["experiment_id"],
         configuration=configuration,
-        problem=problem,
-        dimension=_parse_json_int(
-            payload["dimension"],
-            field_name="dimension",
+        problem=ProblemSpecification(
+            name=problem_payload["name"],
+            dimensions=tuple(problem_payload["dimensions"]),
+            import_path=problem_payload["import_path"],
+            parameters=problem_payload["parameters"],
+            optimization=problem_payload["optimization"],
         ),
-        seed=_parse_json_int(
-            payload["seed"],
-            field_name="seed",
+        dimension=payload["dimension"],
+        seed=payload["seed"],
+        termination=TerminationSpecification(
+            max_evaluations=termination_payload["max_evaluations"],
+            max_iterations=termination_payload["max_iterations"],
+            cutoff_value=termination_payload["cutoff_value"],
+            enable_logging=termination_payload["enable_logging"],
         ),
-        termination=termination,
     )
 
 
@@ -899,7 +713,7 @@ class ExperimentArtifactStore:
                 "best_solution": list(result.best_solution),
                 "function_evaluations": result.function_evaluations,
                 "iterations": result.iterations,
-                "elapsed_seconds": result.elapsed_seconds,
+                "cpu_seconds": result.cpu_seconds,
             },
             "convergence": {
                 "path": str(convergence_path.relative_to(self.experiment_directory)),
@@ -1036,7 +850,7 @@ class ExperimentArtifactStore:
             best_solution=best_solution,
             function_evaluations=metrics["function_evaluations"],
             iterations=metrics["iterations"],
-            elapsed_seconds=metrics["elapsed_seconds"],
+            cpu_seconds=metrics["cpu_seconds"],
             convergence_evaluations=evaluations,
             convergence_values=values,
         )

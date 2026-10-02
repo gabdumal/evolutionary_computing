@@ -48,7 +48,7 @@ from experiment_specifications import (
     OptimizationDirection,
 )
 
-DEFAULT_MAX_WORKERS: Final[int] = 6
+DEFAULT_MAX_WORKERS: Final[int] = 8
 DEFAULT_PROGRESS_INTERVAL_SECONDS: Final[float] = 15.0
 
 FloatArray: TypeAlias = npt.NDArray[np.float64]
@@ -71,7 +71,7 @@ class ExperimentExecutionReport:
     submitted_run_count: int
     completed_run_count: int
     failed_run_count: int
-    elapsed_seconds: float
+    cpu_seconds: float
     failed_run_ids: tuple[str, ...]
 
 
@@ -310,7 +310,7 @@ def execute_single_run(
     run: ExperimentRunSpecification,
 ) -> ExperimentRunResult:
     """Execute one concrete run in a worker process."""
-    started_at = time.perf_counter()
+    started_at = time.process_time()
 
     algorithm = _create_algorithm(run)
     task = _create_task(run)
@@ -398,7 +398,7 @@ def execute_single_run(
         best_solution=solution,
         function_evaluations=function_evaluations,
         iterations=iterations,
-        elapsed_seconds=time.perf_counter() - started_at,
+        cpu_seconds=time.process_time() - started_at,
         convergence_evaluations=convergence_evaluations,
         convergence_values=convergence_values,
     )
@@ -437,7 +437,7 @@ def _print_execution_progress(
     completed_run_count: int,
     failed_run_count: int,
     active_run_count: int,
-    elapsed_seconds: float,
+    cpu_seconds: float,
 ) -> None:
     """Print one concise progress update from the parent process."""
     processed_run_count = (
@@ -449,7 +449,7 @@ def _print_execution_progress(
         f"Progress: {processed_run_count:,}/{total_run_count:,} "
         f"({percentage:.1f}%) | completed={completed_run_count:,} "
         f"| failed={failed_run_count:,} | active={active_run_count:,} "
-        f"| elapsed={elapsed_seconds:.1f}s",
+        f"| cpu={cpu_seconds:.1f}s",
         flush=True,
     )
 
@@ -502,8 +502,9 @@ def execute_experiment(
     completed_run_count = 0
     failed_run_ids: list[str] = []
 
-    started_at = time.perf_counter()
-    last_progress_at = started_at
+    progress_started_at = time.perf_counter()
+    last_progress_at = progress_started_at
+    total_cpu_seconds = 0.0
 
     print(
         f"Starting experiment {experiment.name!r}: "
@@ -532,7 +533,7 @@ def execute_experiment(
             completed_run_count=completed_run_count,
             failed_run_count=len(failed_run_ids),
             active_run_count=len(futures),
-            elapsed_seconds=time.perf_counter() - started_at,
+            cpu_seconds=total_cpu_seconds,
         )
 
         while futures:
@@ -564,6 +565,7 @@ def execute_experiment(
                 else:
                     store.save_run_result(result)
                     completed_run_count += 1
+                    total_cpu_seconds += result.cpu_seconds
 
                 submitted_run_count += _submit_available_runs(
                     executor,
@@ -580,7 +582,7 @@ def execute_experiment(
                         completed_run_count=completed_run_count,
                         failed_run_count=len(failed_run_ids),
                         active_run_count=len(futures),
-                        elapsed_seconds=now - started_at,
+                        cpu_seconds=total_cpu_seconds,
                     )
                     last_progress_at = now
     except KeyboardInterrupt:
@@ -607,7 +609,7 @@ def execute_experiment(
             cancel_futures=False,
         )
 
-    elapsed_seconds = time.perf_counter() - started_at
+    cpu_seconds = total_cpu_seconds
 
     _print_execution_progress(
         total_run_count=experiment.run_count,
@@ -615,7 +617,7 @@ def execute_experiment(
         completed_run_count=completed_run_count,
         failed_run_count=len(failed_run_ids),
         active_run_count=0,
-        elapsed_seconds=elapsed_seconds,
+        cpu_seconds=cpu_seconds,
     )
 
     return ExperimentExecutionReport(
@@ -625,7 +627,7 @@ def execute_experiment(
         submitted_run_count=submitted_run_count,
         completed_run_count=completed_run_count,
         failed_run_count=len(failed_run_ids),
-        elapsed_seconds=elapsed_seconds,
+        cpu_seconds=cpu_seconds,
         failed_run_ids=tuple(failed_run_ids),
     )
 

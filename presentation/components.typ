@@ -3,7 +3,7 @@
 #import "data/data.typ": authors, date, subtitle, title
 #import "data/terms.typ": get_term
 #import "packages.typ": (
-  hydra, quati-abnt.article, quati-abnt.bibliography.cite_prose, quati-abnt.common.components,
+  glossarium.gls, hydra, quati-abnt.article, quati-abnt.bibliography.cite_prose, quati-abnt.common.components,
   quati-abnt.common.components.describe_figure, quati-abnt.common.components.equation,
   quati-abnt.common.components.foreign_text, quati-abnt.common.components.format_table,
   quati-abnt.note.closed_discussion_note, quati-abnt.note.create_status_note, quati-abnt.note.done_note,

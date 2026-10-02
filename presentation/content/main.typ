@@ -3,6 +3,6 @@
 #import "../template.typ": *
 
 
-#title_slide("Problema")
+#title_slide(glossarium.gls-long("cso"))
 
-== Cenário
+== Origem

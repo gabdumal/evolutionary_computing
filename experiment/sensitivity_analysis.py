@@ -29,7 +29,7 @@ import json
 from collections.abc import Iterable, Mapping
 from dataclasses import dataclass
 from math import isfinite
-from typing import Final, Literal, TypeAlias
+from typing import Final, Literal, TypeAlias, cast
 
 import pandas as pd
 
@@ -49,7 +49,7 @@ from validation_analysis import (
     validate_run_result,
 )
 
-SensitivityDesign: TypeAlias = Literal["single_parameter", "factorial", "explicit"]
+SensitivityDesign: TypeAlias = Literal["single_parameter", "factorial"]
 
 DEFAULT_PERFORMANCE_TOLERANCE: Final[float] = 1e-12
 
@@ -93,7 +93,7 @@ class SensitivityAnalysis:
         """Return sensitivity results for one configured parameter."""
         if parameter_name not in self.parameter_names:
             raise KeyError(
-                f"Parameter {parameter_name!r} is not part of the analyzed experiment."
+                f"Parameter {parameter_name!r} is not part of the sensitivity grid."
             )
 
         return self.parameter_table.loc[
@@ -108,20 +108,19 @@ def analyze_sensitivity(
     require_complete: bool = True,
     performance_tolerance: float = DEFAULT_PERFORMANCE_TOLERANCE,
 ) -> SensitivityAnalysis:
-    """Analyze a completed experiment deterministically.
+    """Analyze parameter sensitivity from a completed experiment.
 
-    Cartesian sensitivity experiments use ``parameter_grid``. Explicit
-    configuration experiments use ``configurations`` and are reported with
-    design ``"explicit"``; their parameter-level summaries are descriptive
-    and should not be interpreted as marginal factorial effects.
+    ``expected_experiment`` is required deliberately. Sensitivity analysis
+    needs the declared Cartesian parameter grid to distinguish parameter
+    levels from fixed algorithm parameters and to verify that the available
+    artifacts correspond to the intended experiment.
 
     By default every expected run must exist and be valid. Setting
     ``require_complete=False`` permits analysis of the valid subset, while the
     returned validation report still records missing or invalid runs.
     """
     _validate_performance_tolerance(performance_tolerance)
-    _validate_sensitivity_specification(expected_experiment)
-    parameter_names = _get_analysis_parameter_names(expected_experiment)
+    _validate_sensitivity_grid(expected_experiment)
 
     validation_report = validate_experiment(
         artifact_store,
@@ -148,11 +147,7 @@ def analyze_sensitivity(
             "No valid completed runs are available for sensitivity analysis."
         )
 
-    run_table = _create_run_table(
-        analyzed_results,
-        expected_experiment,
-        parameter_names=parameter_names,
-    )
+    run_table = _create_run_table(analyzed_results, expected_experiment)
     scenario_table = _create_scenario_table(
         analyzed_results,
         performance_tolerance=performance_tolerance,
@@ -160,26 +155,22 @@ def analyze_sensitivity(
     configuration_table = _create_configuration_table(
         scenario_table,
         expected_experiment,
-        parameter_names=parameter_names,
     )
     parameter_table = _create_parameter_table(
         configuration_table,
-        parameter_names=parameter_names,
+        expected_experiment,
     )
 
-    if expected_experiment.configurations is not None:
-        design: SensitivityDesign = "explicit"
-    else:
-        design = (
-            "single_parameter"
-            if len(expected_experiment.parameter_grid) == 1
-            else "factorial"
-        )
+    design = (
+        "single_parameter"
+        if len(expected_experiment.parameter_grid) == 1
+        else "factorial"
+    )
 
     return SensitivityAnalysis(
         experiment_id=expected_experiment.experiment_id,
         algorithm_name=expected_experiment.algorithm.display_name,
-        parameter_names=parameter_names,
+        parameter_names=tuple(expected_experiment.parameter_grid),
         design=design,
         completed_run_count=len(completed_results),
         analyzed_run_count=len(analyzed_results),
@@ -243,6 +234,8 @@ def create_configuration_comparison_table(
         "scenario_count",
         "mean_normalized_gap",
         "std_normalized_gap",
+        "mean_seed_std_normalized_gap",
+        "max_seed_std_normalized_gap",
         "mean_rank",
         "worst_normalized_gap",
     ]
@@ -250,23 +243,15 @@ def create_configuration_comparison_table(
     return sensitivity_analysis.configuration_table.loc[:, columns].copy()
 
 
-def _validate_sensitivity_specification(
+def _validate_sensitivity_grid(
     experiment: ExperimentSpecification,
 ) -> None:
-    """Validate that the experiment has a supported analysis configuration."""
-    if experiment.configurations is not None:
-        if not experiment.configurations:
-            raise ValueError(
-                "Explicit configuration analysis requires at least one configuration."
-            )
-        return
-
     parameter_grid = experiment.parameter_grid
 
     if not parameter_grid:
         raise ValueError(
-            "Sensitivity analysis requires either parameter_grid or "
-            "explicit configurations in ExperimentSpecification."
+            "Sensitivity analysis requires at least one parameter in "
+            "ExperimentSpecification.parameter_grid."
         )
 
     single_level_parameters = tuple(
@@ -281,20 +266,6 @@ def _validate_sensitivity_specification(
             "Every sensitivity parameter must have at least two candidate "
             f"values; {names} has fewer than two."
         )
-
-
-def _get_analysis_parameter_names(
-    experiment: ExperimentSpecification,
-) -> tuple[str, ...]:
-    """Return parameters that should appear in analysis tables."""
-    if experiment.configurations is None:
-        return tuple(experiment.parameter_grid)
-
-    parameter_names: set[str] = set()
-    for configuration in experiment.configurations:
-        parameter_names.update(configuration)
-
-    return tuple(sorted(parameter_names))
 
 
 def _validate_performance_tolerance(tolerance: float) -> None:
@@ -349,10 +320,9 @@ def _select_analyzable_results(
 def _create_run_table(
     results: Iterable[ExperimentRunResult],
     experiment: ExperimentSpecification,
-    *,
-    parameter_names: tuple[str, ...],
 ) -> pd.DataFrame:
     records: list[dict[str, object]] = []
+    parameter_names = tuple(experiment.parameter_grid)
 
     for result in results:
         run = result.run_specification
@@ -368,7 +338,7 @@ def _create_run_table(
             "best_value": float(result.best_value),
             "function_evaluations": int(result.function_evaluations),
             "iterations": int(result.iterations),
-            "elapsed_seconds": float(result.elapsed_seconds),
+            "cpu_seconds": float(result.cpu_seconds),
             "scenario": _scenario_identifier(run),
         }
 
@@ -399,7 +369,7 @@ def _create_run_table(
         "best_value",
         "function_evaluations",
         "iterations",
-        "elapsed_seconds",
+        "cpu_seconds",
     ]
 
     return pd.DataFrame.from_records(records, columns=columns)
@@ -443,8 +413,8 @@ def _create_scenario_table(
                 "mean_function_evaluations": float(
                     pd.Series([result.function_evaluations for result in group]).mean()
                 ),
-                "mean_elapsed_seconds": float(
-                    pd.Series([result.elapsed_seconds for result in group]).mean()
+                "mean_cpu_seconds": float(
+                    pd.Series([result.cpu_seconds for result in group]).mean()
                 ),
                 "oriented_mean_best_value": float(pd.Series(oriented_values).mean()),
             }
@@ -456,6 +426,7 @@ def _create_scenario_table(
         return table
 
     table["normalized_gap"] = 0.0
+    table["std_normalized_gap_across_seeds"] = 0.0
     table["scenario_rank"] = 0.0
 
     for scenario, scenario_rows in table.groupby(
@@ -483,6 +454,32 @@ def _create_scenario_table(
             ascending=True,
         )
 
+        for index, row in scenario_rows.iterrows():
+            configuration_id = str(row["configuration_id"])
+            scenario_problem = str(cast(str, scenario[0]))
+            scenario_dimension = int(cast(int, row["dimension"]))
+            group = grouped_results[
+                (scenario_problem, scenario_dimension, configuration_id)
+            ]
+            seed_oriented_values = [
+                _orient_value(
+                    float(result.best_value),
+                    group[0].run_specification.problem.optimization,
+                )
+                for result in group
+            ]
+
+            if spread <= performance_tolerance:
+                seed_normalized_gaps = [0.0] * len(seed_oriented_values)
+            else:
+                seed_normalized_gaps = [
+                    (value - scenario_best) / spread for value in seed_oriented_values
+                ]
+
+            table.loc[index, "std_normalized_gap_across_seeds"] = (
+                _safe_standard_deviation(seed_normalized_gaps)
+            )
+
     return table.sort_values(
         ["problem", "dimension", "normalized_gap", "configuration_id"],
         kind="stable",
@@ -492,12 +489,11 @@ def _create_scenario_table(
 def _create_configuration_table(
     scenario_table: pd.DataFrame,
     experiment: ExperimentSpecification,
-    *,
-    parameter_names: tuple[str, ...],
 ) -> pd.DataFrame:
     if scenario_table.empty:
         return pd.DataFrame()
 
+    parameter_names = tuple(experiment.parameter_grid)
     configuration_records: list[dict[str, object]] = []
 
     configuration_rows = scenario_table.groupby(
@@ -527,6 +523,12 @@ def _create_configuration_table(
             "scenario_count": len(rows),
             "mean_normalized_gap": float(normalized_gaps.mean()),
             "std_normalized_gap": _safe_series_standard_deviation(normalized_gaps),
+            "mean_seed_std_normalized_gap": float(
+                rows["std_normalized_gap_across_seeds"].mean()
+            ),
+            "max_seed_std_normalized_gap": float(
+                rows["std_normalized_gap_across_seeds"].max()
+            ),
             "mean_rank": float(ranks.mean()),
             "worst_normalized_gap": float(normalized_gaps.max()),
         }
@@ -546,6 +548,8 @@ def _create_configuration_table(
         "scenario_count",
         "mean_normalized_gap",
         "std_normalized_gap",
+        "mean_seed_std_normalized_gap",
+        "max_seed_std_normalized_gap",
         "mean_rank",
         "worst_normalized_gap",
     ]
@@ -565,15 +569,14 @@ def _create_configuration_table(
 
 def _create_parameter_table(
     configuration_table: pd.DataFrame,
-    *,
-    parameter_names: tuple[str, ...],
+    experiment: ExperimentSpecification,
 ) -> pd.DataFrame:
     if configuration_table.empty:
         return pd.DataFrame()
 
     records: list[dict[str, object]] = []
 
-    for parameter_name in parameter_names:
+    for parameter_name in experiment.parameter_grid:
         parameter_key = f"{parameter_name}__key"
         grouped = configuration_table.groupby(
             parameter_key,
@@ -586,6 +589,8 @@ def _create_parameter_table(
             first_value = rows[parameter_name].iloc[0]
             mean_gap = float(rows["mean_normalized_gap"].mean())
             std_gap = _safe_series_standard_deviation(rows["mean_normalized_gap"])
+            mean_seed_std_gap = float(rows["mean_seed_std_normalized_gap"].mean())
+            worst_seed_std_gap = float(rows["max_seed_std_normalized_gap"].max())
             mean_rank = float(rows["mean_rank"].mean())
 
             levels.append(
@@ -596,6 +601,8 @@ def _create_parameter_table(
                     "configuration_count": len(rows),
                     "mean_normalized_gap": mean_gap,
                     "std_normalized_gap": std_gap,
+                    "mean_seed_std_normalized_gap": mean_seed_std_gap,
+                    "worst_seed_std_normalized_gap": worst_seed_std_gap,
                     "mean_rank": mean_rank,
                     "worst_configuration_gap": float(
                         rows["worst_normalized_gap"].max()

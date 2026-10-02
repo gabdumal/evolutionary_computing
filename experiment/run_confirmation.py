@@ -7,31 +7,22 @@ configurations rather than a Cartesian parameter grid. Every listed
 configuration is evaluated on the same benchmark scenarios and five seeds.
 """
 
-from experiment_artifacts import ExperimentArtifactStore
-from experiment_execution import execute_experiment
+from experiment_artifacts import DEFAULT_ARTIFACT_ROOT, ExperimentArtifactStore
+from experiment_execution import DEFAULT_MAX_WORKERS, execute_experiment
 from experiment_specifications import (
+    DEFAULT_PARAMETERS_FOR_CSO,
+    DEFAULT_PROBLEMS,
     AlgorithmSpecification,
     ExperimentSpecification,
-    ProblemSpecification,
     SeedSpecification,
     TerminationSpecification,
 )
 from validation_analysis import validate_experiment
 
-ARTIFACT_ROOT = "_artifacts"
+ARTIFACT_ROOT = DEFAULT_ARTIFACT_ROOT
 
 ALGORITHM_IMPORT_PATH = "niapy.algorithms.basic.CatSwarmOptimization"
 
-BASE_ALGORITHM_PARAMETERS = {
-    "population_size": 30,
-    "mixture_ratio": 0.1,
-    "c1": 2.05,
-    "smp": 3,
-    "spc": True,
-    "cdc": 1.0,
-    "srd": 0.2,
-    "max_velocity": 1.9,
-}
 
 # These are the representative configurations selected from the two-stage
 # sensitivity analysis. Values omitted here inherit from the fixed baseline
@@ -75,14 +66,10 @@ CONFIRMATION_CONFIGURATIONS = (
     },
 )
 
-PROBLEMS = (
-    ProblemSpecification("Sphere", (10, 100)),
-    ProblemSpecification("Rastrigin", (10, 100)),
-    ProblemSpecification("Step", (10, 100)),
-)
+PROBLEMS = DEFAULT_PROBLEMS
 
 SEEDS = SeedSpecification(
-    replications=5,
+    replications=3,
 )
 
 TERMINATION = TerminationSpecification(
@@ -96,7 +83,7 @@ def create_confirmation_experiment() -> ExperimentSpecification:
         name="cat-swarm-confirmation",
         algorithm=AlgorithmSpecification(
             import_path=ALGORITHM_IMPORT_PATH,
-            parameters=BASE_ALGORITHM_PARAMETERS,
+            parameters=DEFAULT_PARAMETERS_FOR_CSO,
         ),
         problems=PROBLEMS,
         configurations=CONFIRMATION_CONFIGURATIONS,
@@ -131,7 +118,7 @@ def main() -> None:
     execution_report = execute_experiment(
         experiment,
         artifact_root=ARTIFACT_ROOT,
-        max_workers=6,
+        max_workers=DEFAULT_MAX_WORKERS,
     )
 
     print(execution_report)

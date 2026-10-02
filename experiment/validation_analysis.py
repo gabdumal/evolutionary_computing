@@ -58,7 +58,7 @@ class RunValidationSummary:
     best_value: float
     function_evaluations: int
     iterations: int
-    elapsed_seconds: float
+    cpu_seconds: float
     error_count: int
     warning_count: int
 
@@ -354,7 +354,7 @@ def create_validation_summary_table(
             "best_value": summary.best_value,
             "function_evaluations": summary.function_evaluations,
             "iterations": summary.iterations,
-            "elapsed_seconds": summary.elapsed_seconds,
+            "cpu_seconds": summary.cpu_seconds,
             "error_count": summary.error_count,
             "warning_count": summary.warning_count,
             "is_valid": summary.is_valid,
@@ -689,21 +689,21 @@ def _validate_run_metrics(
             )
         )
 
-    if not _is_finite_real(run_result.elapsed_seconds):
+    if not _is_finite_real(run_result.cpu_seconds):
         issues.append(
             ValidationIssue(
                 severity="error",
                 category="metrics",
-                message="elapsed_seconds must be a finite real number.",
+                message="cpu_seconds must be a finite real number.",
                 run_id=run_id,
             )
         )
-    elif float(run_result.elapsed_seconds) < 0.0:
+    elif float(run_result.cpu_seconds) < 0.0:
         issues.append(
             ValidationIssue(
                 severity="error",
                 category="metrics",
-                message="elapsed_seconds cannot be negative.",
+                message="cpu_seconds cannot be negative.",
                 run_id=run_id,
             )
         )
@@ -970,7 +970,7 @@ def _create_run_validation_summary(
         best_value=float(run_result.best_value),
         function_evaluations=int(run_result.function_evaluations),
         iterations=int(run_result.iterations),
-        elapsed_seconds=float(run_result.elapsed_seconds),
+        cpu_seconds=float(run_result.cpu_seconds),
         error_count=run_errors,
         warning_count=run_warnings,
     )

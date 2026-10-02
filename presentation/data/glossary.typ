@@ -96,6 +96,11 @@
     description: [Em inglês, #foreign_text[Self-Organizing Map].],
     // group: "Aprendizado de máquina",
   ),
+  (
+    key: "cso",
+    short: "CSO",
+    long: foreign_text[Cat Swarm Optimization],
+  ),
 )
 
 #let glossary_entries = (

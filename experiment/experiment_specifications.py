@@ -16,6 +16,7 @@ import re
 from collections.abc import Callable, Iterator, Mapping, Sequence
 from copy import deepcopy
 from dataclasses import dataclass, field
+from enum import StrEnum
 from hashlib import sha256
 from typing import Final, Literal, TypeAlias
 
@@ -46,6 +47,24 @@ ParameterValue: TypeAlias = (
 ParameterSet: TypeAlias = Mapping[str, ParameterValue]
 
 _IMPORT_PATH_PATTERN = re.compile(r"^[A-Za-z_]\w*(?:\.[A-Za-z_]\w*)+$")
+
+
+class ProblemName(StrEnum):
+    HappyCat = "HappyCat"
+    Rosenbrock = "Rosenbrock"
+    Schwefel = "Schwefel"
+
+
+DEFAULT_PARAMETERS_FOR_CSO = {
+    "population_size": 30,
+    "mixture_ratio": 0.1,
+    "c1": 2.05,
+    "smp": 3,
+    "spc": True,
+    "cdc": 0.85,
+    "srd": 0.2,
+    "max_velocity": 1.9,
+}
 
 
 def _validate_non_empty_name(value: str, field_name: str) -> None:
@@ -696,6 +715,15 @@ class ExperimentSpecification:
             "seeds": self.seeds.identity(),
             "termination": self.termination.identity(),
         }
+
+
+DEFAULT_PROBLEMS = (
+    ProblemSpecification(
+        ProblemName.HappyCat, (10, 100), import_path="niapy.problems.HappyCat"
+    ),
+    ProblemSpecification(ProblemName.Rosenbrock, (10, 100)),
+    ProblemSpecification(ProblemName.Schwefel, (10, 100)),
+)
 
 
 __all__ = [

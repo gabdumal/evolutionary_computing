@@ -10,7 +10,7 @@ from pathlib import Path
 
 import pandas as pd
 
-from experiment_artifacts import ExperimentArtifactStore
+from experiment_artifacts import DEFAULT_ARTIFACT_ROOT, ExperimentArtifactStore
 from experiment_specifications import ExperimentSpecification
 from sensitivity_analysis import (
     analyze_sensitivity,
@@ -18,7 +18,7 @@ from sensitivity_analysis import (
     create_parameter_effect_table,
 )
 
-DEFAULT_ARTIFACT_ROOT = "_artifacts"
+ARTIFACT_ROOT = DEFAULT_ARTIFACT_ROOT
 
 
 def main() -> None:
@@ -121,7 +121,7 @@ def _parse_arguments() -> argparse.Namespace:
     parser.add_argument(
         "--artifact-root",
         type=Path,
-        default=Path(DEFAULT_ARTIFACT_ROOT),
+        default=Path(ARTIFACT_ROOT),
         help="Root directory containing experiment artifacts.",
     )
     parser.add_argument(

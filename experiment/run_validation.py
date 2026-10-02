@@ -2,27 +2,22 @@ from __future__ import annotations
 
 """Run and validate a CSO hyperparameter-grid experiment."""
 
-from experiment_artifacts import ExperimentArtifactStore
-from experiment_execution import execute_experiment
+from experiment_artifacts import DEFAULT_ARTIFACT_ROOT, ExperimentArtifactStore
+from experiment_execution import DEFAULT_MAX_WORKERS, execute_experiment
 from experiment_specifications import (
+    DEFAULT_PARAMETERS_FOR_CSO,
+    DEFAULT_PROBLEMS,
     AlgorithmSpecification,
     ExperimentSpecification,
-    ProblemSpecification,
     SeedSpecification,
     TerminationSpecification,
 )
 from validation_analysis import validate_experiment
 
-ARTIFACT_ROOT = "_artifacts"
+ARTIFACT_ROOT = DEFAULT_ARTIFACT_ROOT
 
 ALGORITHM_IMPORT_PATH = "niapy.algorithms.basic.CatSwarmOptimization"
 
-BASE_ALGORITHM_PARAMETERS = {
-    "c1": 2.05,
-    "smp": 3,
-    "spc": True,
-    "cdc": 1.0,
-}
 
 # Keep this grid deliberately small for the first validation campaign.
 # The Cartesian product below produces 9 configurations.
@@ -33,11 +28,7 @@ HYPERPARAMETER_GRID = {
     "srd": (0.4, 0.5, 0.6, 0.8, 1.0),
 }
 
-PROBLEMS = (
-    ProblemSpecification("Sphere", (10, 100)),
-    ProblemSpecification("Rastrigin", (10, 100)),
-    ProblemSpecification("Step", (10, 100)),
-)
+PROBLEMS = DEFAULT_PROBLEMS
 
 SEEDS = SeedSpecification(
     replications=3,
@@ -54,7 +45,7 @@ def create_validation_experiment() -> ExperimentSpecification:
         name="cat-swarm-hyperparameter-validation",
         algorithm=AlgorithmSpecification(
             import_path=ALGORITHM_IMPORT_PATH,
-            parameters=BASE_ALGORITHM_PARAMETERS,
+            parameters=DEFAULT_PARAMETERS_FOR_CSO,
         ),
         problems=PROBLEMS,
         parameter_grid=HYPERPARAMETER_GRID,
@@ -81,7 +72,7 @@ def main() -> None:
     execution_report = execute_experiment(
         experiment,
         artifact_root=ARTIFACT_ROOT,
-        max_workers=12,
+        max_workers=DEFAULT_MAX_WORKERS,
     )
 
     print(execution_report)
