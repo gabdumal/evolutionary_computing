@@ -121,12 +121,6 @@ class AlgorithmSpecification:
 
         if self.name is not None:
             _validate_non_empty_name(self.name, "name")
-        else:
-            object.__setattr__(
-                self,
-                "name",
-                self.import_path.rsplit(".", maxsplit=1)[-1],
-            )
 
     @classmethod
     def from_callable(
@@ -530,17 +524,7 @@ class ExperimentSpecification:
 
             normalized_grid[parameter_name] = normalized_values
 
-        fixed_parameter_names = set(self.algorithm.parameters)
-        grid_parameter_names = set(normalized_grid)
-        collision_names = fixed_parameter_names & grid_parameter_names
-
-        if collision_names:
-            collisions = ", ".join(sorted(collision_names))
-            raise ValueError(
-                "A parameter cannot be both fixed and part of the "
-                f"parameter grid: {collisions}."
-            )
-
+        # Parameters in the grid override the corresponding fixed values.
         object.__setattr__(
             self,
             "parameter_grid",

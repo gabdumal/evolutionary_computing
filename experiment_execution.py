@@ -33,7 +33,7 @@ from concurrent.futures import (
 )
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Final, TypeAlias
+from typing import Any, Final, Protocol, TypeAlias, cast
 
 import numpy as np
 import numpy.typing as npt
@@ -45,6 +45,7 @@ from experiment_artifacts import (
 from experiment_specifications import (
     ExperimentRunSpecification,
     ExperimentSpecification,
+    OptimizationDirection,
 )
 
 DEFAULT_MAX_WORKERS: Final[int] = 6
@@ -53,6 +54,10 @@ FloatArray: TypeAlias = npt.NDArray[np.float64]
 IntArray: TypeAlias = npt.NDArray[np.int64]
 
 WorkerFuture: TypeAlias = Future[ExperimentRunResult]
+
+
+class _ConvergenceDataCallable(Protocol):
+    def __call__(self, mode: str) -> tuple[object, object]: ...
 
 
 @dataclass(frozen=True, slots=True)
@@ -219,73 +224,85 @@ def _solution_to_tuple(
 
 def _convergence_arrays(
     task: Any,
-    final_value: float,
+    optimization: OptimizationDirection,
+    fallback_best_value: float,
 ) -> tuple[IntArray, FloatArray]:
-    """Extract best-so-far improvement events from the NiaPy Task."""
+    """Extract a validated best-so-far trajectory from NiaPy."""
+    convergence_data = getattr(task, "convergence_data", None)
+
+    if callable(convergence_data):
+        typed_convergence_data = cast(
+            _ConvergenceDataCallable,
+            convergence_data,
+        )
+        raw_evaluations, raw_internal_values = typed_convergence_data("evals")
+    else:
+        raw_evaluations = getattr(task, "n_evals", [])
+        raw_internal_values = getattr(task, "fitness_evals", [])
+
     evaluations = np.asarray(
-        getattr(task, "n_evals", []),
+        raw_evaluations,
         dtype=np.int64,
-    )
+    ).reshape(-1)
     internal_values = np.asarray(
-        getattr(task, "fitness_evals", []),
+        raw_internal_values,
         dtype=np.float64,
-    )
-
-    if evaluations.ndim != 1:
-        evaluations = evaluations.reshape(-1)
-
-    if internal_values.ndim != 1:
-        internal_values = internal_values.reshape(-1)
+    ).reshape(-1)
 
     if evaluations.size != internal_values.size:
         raise RuntimeError(
-            "NiaPy returned inconsistent convergence metadata: "
+            "NiaPy returned inconsistent convergence data: "
             f"{evaluations.size} evaluation points vs "
             f"{internal_values.size} values."
         )
 
-    optimization_type = getattr(task, "optimization_type", None)
-    direction_value = float(getattr(optimization_type, "value", 1.0))
+    completed_evaluations = int(task.evals)
 
-    values = np.asarray(
-        internal_values * direction_value,
+    if evaluations.size == 0:
+        return (
+            np.asarray([completed_evaluations], dtype=np.int64),
+            np.asarray([fallback_best_value], dtype=np.float64),
+        )
+
+    if evaluations[0] < 1:
+        raise RuntimeError("NiaPy returned a convergence evaluation below one.")
+
+    if np.any(np.diff(evaluations) <= 0):
+        raise RuntimeError("NiaPy returned non-increasing convergence evaluations.")
+
+    if evaluations[-1] > completed_evaluations:
+        raise RuntimeError(
+            "NiaPy returned a convergence evaluation beyond the "
+            "completed evaluation count."
+        )
+
+    if not np.all(np.isfinite(internal_values)):
+        raise RuntimeError("NiaPy returned non-finite convergence fitness values.")
+
+    # NiaPy's internal fitness representation is always minimized.
+    best_internal_values = np.minimum.accumulate(internal_values)
+
+    direction_value = 1.0 if optimization == "minimize" else -1.0
+    objective_values = np.asarray(
+        best_internal_values * direction_value,
         dtype=np.float64,
     )
 
-    # NiaPy records best-value improvements. In a normal run this is
-    # non-empty because population initialization evaluates candidates.
-    # The fallback makes the executor robust to custom algorithms/tasks.
-    if evaluations.size == 0:
-        evaluations = np.asarray(
-            [int(task.evals)],
-            dtype=np.int64,
-        )
-        values = np.asarray(
-            [final_value],
-            dtype=np.float64,
-        )
-    elif int(evaluations[-1]) == int(task.evals):
-        values[-1] = final_value
-    elif not np.isclose(
-        float(values[-1]),
-        final_value,
-        rtol=0.0,
-        atol=0.0,
-    ):
+    if evaluations[-1] < completed_evaluations:
         evaluations = np.concatenate(
             (
                 evaluations,
-                np.asarray([int(task.evals)], dtype=np.int64),
+                np.asarray([completed_evaluations], dtype=np.int64),
             )
         )
-        values = np.concatenate(
+        objective_values = np.concatenate(
             (
-                values,
-                np.asarray([final_value], dtype=np.float64),
+                objective_values,
+                np.asarray([float(objective_values[-1])], dtype=np.float64),
             )
         )
 
-    return evaluations, values
+    return evaluations, objective_values
 
 
 def execute_single_run(
@@ -319,33 +336,66 @@ def execute_single_run(
             "NiaPy returned no final solution or fitness."
         )
 
-    if not isinstance(final_fitness, (int, float)):
-        raise ExperimentRunExecutionError("NiaPy returned a non-numeric final fitness.")
+    if (
+        not isinstance(final_fitness, (int, float))
+        or isinstance(final_fitness, bool)
+        or not np.isfinite(float(final_fitness))
+    ):
+        raise ExperimentRunExecutionError(
+            "NiaPy returned a non-finite or non-numeric final fitness."
+        )
 
-    final_value = float(final_fitness)
+    algorithm_returned_value = float(final_fitness)
+
     solution = _solution_to_tuple(
         final_solution,
         run.dimension,
     )
 
-    evaluations = int(task.evals)
+    function_evaluations = int(task.evals)
     iterations = int(task.iters)
 
-    if evaluations <= 0:
+    if function_evaluations <= 0:
         raise ExperimentRunExecutionError(
             "NiaPy completed without performing a function evaluation."
         )
 
+    direction_value = 1.0 if run.problem.optimization == "minimize" else -1.0
+
+    raw_task_best = getattr(task, "x_f", None)
+    if (
+        isinstance(raw_task_best, (int, float))
+        and not isinstance(raw_task_best, bool)
+        and np.isfinite(float(raw_task_best))
+    ):
+        best_value = float(raw_task_best) * direction_value
+    else:
+        best_value = algorithm_returned_value
+
     convergence_evaluations, convergence_values = _convergence_arrays(
         task,
-        final_value,
+        run.problem.optimization,
+        best_value,
     )
+
+    final_convergence_value = float(convergence_values[-1])
+
+    if not np.isclose(
+        final_convergence_value,
+        best_value,
+        rtol=1e-12,
+        atol=1e-12,
+    ):
+        raise ExperimentRunExecutionError(
+            "The persisted convergence trajectory is inconsistent with "
+            "the final best objective value."
+        )
 
     return ExperimentRunResult(
         run_specification=run,
-        best_value=final_value,
+        best_value=best_value,
         best_solution=solution,
-        function_evaluations=evaluations,
+        function_evaluations=function_evaluations,
         iterations=iterations,
         elapsed_seconds=time.perf_counter() - started_at,
         convergence_evaluations=convergence_evaluations,
