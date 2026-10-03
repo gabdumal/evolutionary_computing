@@ -1,5 +1,11 @@
-"""Reusable infrastructure for reproducible optimization experiments."""
-
+from .algorithms import (
+    AlgorithmAdapter,
+    AlgorithmRegistry,
+    cso_algorithm_specification,
+    default_registry,
+)
+from .artifacts import ArtifactStore
+from .campaigns import CampaignReport, run_campaign
 from .core import (
     AlgorithmConfiguration,
     AlgorithmSpecification,
@@ -14,12 +20,15 @@ from .core import (
     RunSpecification,
     SeedPlan,
     TimingResult,
+    algorithm_id,
+    configuration_id,
+    experiment_id,
+    resolve_configurations,
+    run_id,
+    scenario_id,
 )
-from .algorithms import AlgorithmAdapter, AlgorithmRegistry
 from .execution import ExecutionReport, ExperimentRunner
-from .artifacts import ArtifactStore
 from .validation import ValidationReport, validate_experiment
-from .analysis import RunDataset, aggregate_runs
 
 __all__ = [
     "AlgorithmAdapter",
@@ -28,6 +37,7 @@ __all__ = [
     "AlgorithmSpecification",
     "ArtifactStore",
     "BenchmarkScenario",
+    "CampaignReport",
     "ConvergenceTrace",
     "EvaluationBudget",
     "ExecutionReport",
@@ -36,12 +46,19 @@ __all__ = [
     "ObjectiveResult",
     "ParameterDefinition",
     "ParameterSchema",
-    "RunDataset",
     "RunResult",
     "RunSpecification",
     "SeedPlan",
     "TimingResult",
     "ValidationReport",
-    "aggregate_runs",
+    "algorithm_id",
+    "configuration_id",
+    "cso_algorithm_specification",
+    "default_registry",
+    "experiment_id",
+    "resolve_configurations",
+    "run_campaign",
+    "run_id",
+    "scenario_id",
     "validate_experiment",
 ]

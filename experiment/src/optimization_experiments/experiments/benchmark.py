@@ -8,30 +8,27 @@ def default_benchmark_scenarios(
     dimensions: tuple[int, ...] = (10, 100),
 ) -> tuple[BenchmarkScenario, ...]:
     scenarios = []
+    bounds = {
+        "HappyCat": (-100.0, 100.0),
+        "Rosenbrock": (-30.0, 30.0),
+        "Schwefel": (-500.0, 500.0),
+    }
+
     for dimension in dimensions:
-        scenarios.extend(
-            (
+        for problem, objective in (
+            ("HappyCat", "happycat"),
+            ("Rosenbrock", "rosenbrock"),
+            ("Schwefel", "schwefel"),
+        ):
+            lower, upper = bounds[problem]
+            scenarios.append(
                 BenchmarkScenario(
-                    problem="HappyCat",
+                    problem=problem,
                     dimension=dimension,
-                    objective="happycat",
-                    lower_bound=-20.0,
-                    upper_bound=20.0,
-                ),
-                BenchmarkScenario(
-                    problem="Rosenbrock",
-                    dimension=dimension,
-                    objective="rosenbrock",
-                    lower_bound=-30.0,
-                    upper_bound=30.0,
-                ),
-                BenchmarkScenario(
-                    problem="Schwefel",
-                    dimension=dimension,
-                    objective="schwefel",
-                    lower_bound=-500.0,
-                    upper_bound=500.0,
-                ),
+                    objective=objective,
+                    lower_bound=lower,
+                    upper_bound=upper,
+                )
             )
-        )
+
     return tuple(scenarios)

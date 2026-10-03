@@ -1,70 +1,9 @@
 # optimization-experiments
 
-Initial API for reproducible optimization experiments.
+Reusable infrastructure for reproducible stochastic and zero-order optimization
+experiments.
 
-## Design goals
-
-- Python 3.14+
-- deterministic experiment/configuration/scenario/run identities
-- explicit function-evaluation budgets
-- CPU time as the scientific timing metric
-- independent `configuration × scenario × seed` runs
-- resumable filesystem artifacts
-- Parquet materialization for analysis throughput
-- algorithm adapters so CSO, ZO-AdaMM, and future hybrids share the same runner
-- problem-specific analysis without cross-problem hyperparameter averaging
-- thin experiment wrappers
-
-## Parameter model
-
-`ParameterSchema` defines the complete parameter contract of an algorithm.
-`AlgorithmConfiguration` contains one fully resolved configuration. The grid
-resolver creates configurations before execution, so every persisted run has
-the exact parameters that were actually used.
-
-`AlgorithmSpecification.fixed_parameters` is optional metadata/default
-information; it is not a substitute for a resolved configuration.
-
-## Current package layout
-
-```text
-src/optimization_experiments/
-├── core/
-│   ├── models.py
-│   ├── ids.py
-│   └── parameters.py
-├── algorithms/
-│   ├── base.py
-│   └── callable.py
-├── execution/
-│   └── runner.py
-├── artifacts/
-│   └── store.py
-├── validation/
-│   └── validate.py
-├── analysis/
-│   └── runs.py
-├── experiments/
-│   └── benchmark.py
-└── benchmarks.py
-```
-
-## Scientific protocol currently encoded
-
-The default benchmark scenario factory contains:
-
-- HappyCat
-- Rosenbrock
-- Schwefel
-- dimensions 10 and 100
-
-The API intentionally does not encode a particular ZO-AdaMM hyperparameter grid yet. That belongs in the algorithm-specific experiment definition after the algorithm adapter is implemented.
-
-## Important boundary
-
-`AlgorithmAdapter` is the only execution boundary that needs to know how an optimizer works. The experiment runner only knows how to schedule independent runs and persist `RunResult`.
-
-The intended future shape is:
+## Architecture
 
 ```text
 ExperimentSpecification
@@ -73,25 +12,127 @@ ExperimentSpecification
    ExperimentRunner
         │
         ▼
- AlgorithmAdapter
-   ├── CSO / NiaPy
-   ├── ZO-AdaMM
-   └── Hybrid
+ AlgorithmRegistry
+        │
+        ├── CSO → NiaPyAlgorithmAdapter
+        ├── ZO-AdaMM → future adapter
+        └── Hybrid → future adapter
         │
         ▼
      RunResult
         │
-        ├── objective
+        ├── best objective / solution
         ├── function evaluations
         ├── iterations
         ├── CPU seconds
-        └── convergence trace
+        └── convergence vs function evaluations
+        │
+        ▼
+ ArtifactStore
+        │
+        ├── experiment.json
+        ├── runs/*.json
+        ├── convergence/*.npz
+        ├── failures/*.json
+        └── analysis/*.parquet / *.csv
 ```
 
-## CPU-time policy
+## API contracts
 
-`wall-clock time` is deliberately not part of `RunResult`. CPU time is measured inside the worker process with `time.process_time()` and is the scientific timing metric for this project.
+The runner does not know how an optimization algorithm works. An
+`AlgorithmAdapter` receives one immutable `RunSpecification` and returns one
+`RunResult`.
 
-## Next implementation step
+The registry stores **import paths**, not arbitrary closures or lambda
+functions. This makes adapter construction safe across Python worker
+processes.
 
-Implement the concrete CSO/NiaPy adapter and verify a small deterministic smoke campaign against the old CSO results before running the complete experiment again. Then implement ZO-AdaMM behind the same adapter contract.
+Function-evaluation budget is explicit and is the primary cross-algorithm
+resource metric.
+
+## CSO
+
+The CSO adapter is a thin wrapper over NiaPy's
+`CatSwarmOptimization(population_size, mixture_ratio, c1, smp, spc, cdc, srd,
+max_velocity, ...)`.
+
+The project targets NiaPy 2.7.1+ and Python 3.14+.
+
+## Benchmarks
+
+The default scenarios are:
+
+- HappyCat, D=10 and D=100, [-100, 100]
+- Rosenbrock, D=10 and D=100, [-30, 30]
+- Schwefel, D=10 and D=100, [-500, 500]
+
+These domains match the NiaPy benchmark definitions used as the baseline.
+
+## Smoke campaign
+
+Run:
+
+```bash
+python -m optimization_experiments.cli cso-smoke --workers 1
+```
+
+or after installation:
+
+```bash
+opt-experiments cso-smoke --workers 1
+```
+
+The smoke campaign contains one CSO configuration, 6 benchmark scenarios,
+3 seeds and a 1,000-function-evaluation budget, for 18 independent runs.
+
+## Analysis
+
+The canonical run table contains one row per run with:
+
+```text
+run_id
+experiment_id
+algorithm_id
+algorithm
+configuration_id
+scenario_id
+objective_function
+problem
+dimension
+seed
+<resolved algorithm parameters>
+calculated_value
+function_evaluations
+iterations
+cpu_seconds
+```
+
+Statistics aggregate by configuration/scenario and provide:
+
+```text
+min
+max
+mean
+std
+```
+
+for objective value, function evaluations, iterations and CPU time.
+
+## Scientific timing policy
+
+The scientific timing metric is CPU time measured inside the worker with
+`time.process_time()`. The framework deliberately keeps wall-clock timing out
+of the algorithm result so queueing and scheduling overhead do not become an
+algorithm metric.
+
+## Environment provenance
+
+`experiment.json` records Python, platform, machine, NumPy, pandas, pyarrow,
+NiaPy and the current Git commit when available. Environment metadata does not
+enter the scientific experiment identity.
+
+## Next step
+
+After the CSO smoke campaign is verified locally with NiaPy 2.7.1+, the next
+adapter can implement ZO-AdaMM without modifying the execution, artifact,
+validation or statistical APIs.

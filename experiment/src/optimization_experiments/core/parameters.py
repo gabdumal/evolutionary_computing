@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import itertools
-from collections.abc import Iterable, Mapping, Sequence
+from collections.abc import Mapping, Sequence
 from typing import Any
 
 from .models import AlgorithmConfiguration, AlgorithmSpecification
@@ -13,24 +13,39 @@ def resolve_configurations(
 ) -> tuple[AlgorithmConfiguration, ...]:
     names = algorithm.parameter_schema.names
     unknown = set(grid) - set(names)
-    missing = set(names) - set(grid)
     if unknown:
         raise ValueError(f"Unknown grid parameters: {sorted(unknown)}.")
+    missing = set(names) - set(grid)
+    missing -= set(algorithm.fixed_parameters)
     if missing:
-        raise ValueError(f"Missing grid parameters: {sorted(missing)}.")
-    if any(not values for values in grid.values()):
+        raise ValueError(
+            f"Parameters missing from both fixed values and grid: {sorted(missing)}."
+        )
+
+    ordered_names = tuple(
+        name for name in names if name in grid
+    )
+    if any(not grid[name] for name in ordered_names):
         raise ValueError("Grid parameter values cannot be empty.")
 
-    ordered_values = [tuple(grid[name]) for name in names]
-    configurations = []
-    seen = set()
+    fixed = dict(algorithm.fixed_parameters)
+    configurations: list[AlgorithmConfiguration] = []
+    if not ordered_names:
+        return (
+            AlgorithmConfiguration(
+                algorithm=algorithm,
+                parameters=fixed,
+            ),
+        )
 
-    for values in itertools.product(*ordered_values):
-        parameters = dict(zip(names, values, strict=True))
-        configuration = AlgorithmConfiguration(algorithm=algorithm, parameters=parameters)
-        key = tuple((name, parameters[name]) for name in names)
-        if key not in seen:
-            seen.add(key)
-            configurations.append(configuration)
+    for values in itertools.product(*(tuple(grid[name]) for name in ordered_names)):
+        parameters = dict(fixed)
+        parameters.update(zip(ordered_names, values, strict=True))
+        configurations.append(
+            AlgorithmConfiguration(
+                algorithm=algorithm,
+                parameters=parameters,
+            )
+        )
 
     return tuple(configurations)
