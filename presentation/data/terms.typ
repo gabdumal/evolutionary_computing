@@ -186,10 +186,12 @@
   (
     key: "seeking",
     short: foreign_text[seeking],
+    short_capitalized: foreign_text[Seeking],
   ),
   (
     key: "tracing",
     short: foreign_text[tracing],
+    short_capitalized: foreign_text[Tracing],
   ),
 )
 
