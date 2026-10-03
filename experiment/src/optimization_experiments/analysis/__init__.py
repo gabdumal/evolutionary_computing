@@ -12,6 +12,20 @@ from .cso import (
     select_problem_configurations,
     write_cso_analysis_artifacts,
 )
+from .zoadamm import (
+    ZOAdaMMAnalysis,
+    analyze_zoadamm,
+    create_dimension_parameter_effect_table as create_zoadamm_dimension_parameter_effect_table,
+    create_dimension_parameter_summary_table as create_zoadamm_dimension_parameter_summary_table,
+    create_problem_parameter_table as create_zoadamm_problem_parameter_table,
+    create_problem_configuration_table as create_zoadamm_problem_configuration_table,
+    create_scenario_table as create_zoadamm_scenario_table,
+    create_selected_parameters_by_dimension_table as create_zoadamm_selected_parameters_by_dimension_table,
+    create_configuration_manifest as create_zoadamm_configuration_manifest,
+    select_problem_configurations as select_zoadamm_problem_configurations,
+    select_scenario_configurations as select_zoadamm_scenario_configurations,
+    write_zoadamm_analysis_artifacts,
+)
 from .runs import (
     ANALYSIS_METRICS,
     RunDataset,
@@ -40,4 +54,16 @@ __all__ = [
     "generate_result_artifacts",
     "select_problem_configurations",
     "write_cso_analysis_artifacts",
+    "ZOAdaMMAnalysis",
+    "analyze_zoadamm",
+    "create_zoadamm_configuration_manifest",
+    "create_zoadamm_dimension_parameter_effect_table",
+    "create_zoadamm_dimension_parameter_summary_table",
+    "create_zoadamm_problem_configuration_table",
+    "create_zoadamm_problem_parameter_table",
+    "create_zoadamm_scenario_table",
+    "create_zoadamm_selected_parameters_by_dimension_table",
+    "select_zoadamm_problem_configurations",
+    "select_zoadamm_scenario_configurations",
+    "write_zoadamm_analysis_artifacts",
 ]

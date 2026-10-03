@@ -81,3 +81,43 @@ python -m optimization_experiments.cli cso-grid --workers 8
 ```
 
 The default execution is non-durable for throughput. Use `--durable-artifacts` only when fsync-on-each-artifact is required. Use `--compress-convergence` only when reduced storage size is worth the additional CPU cost.
+
+## Current ZO-AdaMM campaign
+
+The complete three-seed ZO-AdaMM campaign uses 864 full-factorial configurations,
+6 benchmark scenarios (HappyCat, Rosenbrock, Schwefel at dimensions 10 and 100),
+3 seeds (27, 32, 59), and 10,000 function evaluations per run, for 15,552 runs.
+
+The tuned parameters are:
+
+- `learning_rate`: 0.001, 0.003, 0.01, 0.03
+- `beta1`: 0.0, 0.5, 0.9
+- `beta2`: 0.1, 0.5, 0.99
+- `mu`: 0.0001, 0.001, 0.01
+- `q`: 1, 5, 10, 20
+- `decay_learning_rate`: false, true
+
+`epsilon=1e-12` is fixed as a numerical stabilizer and is not treated as a
+scientific hyperparameter. The reference implementation repository uses
+`lr=0.001`, `q=10`, `mu=0.001`, and learning-rate decay in its main experiment
+script. The paper also explicitly discusses a practical preference for smaller
+`beta2` and identifies `beta1,t=0` as an important constrained nonconvex special
+case.
+
+Generate the deterministic ZO-AdaMM configuration manifest:
+
+```bash
+python -m optimization_experiments.cli zoadamm-grid-manifest \
+  --output zoadamm_configuration_grid.csv
+```
+
+Run the complete three-seed campaign:
+
+```bash
+python -m optimization_experiments.cli zoadamm-grid --workers 12
+```
+
+The campaign analysis writes per-run results, three-seed scenario statistics,
+problem-level configuration summaries, parameter-level effects, dimension-specific
+parameter effects, and both problem-level and problem×dimension selected
+configurations.

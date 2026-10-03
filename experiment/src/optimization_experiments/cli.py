@@ -10,6 +10,7 @@ from .campaigns import run_campaign
 from .experiments.cso import create_cso_smoke_experiment
 from .experiments.cso_campaign import create_cso_grid_experiment
 from .experiments.zoadamm import create_zoadamm_smoke_experiment
+from .experiments.zoadamm_campaign import create_zoadamm_grid_experiment
 
 
 def _format_duration(seconds: float) -> str:
@@ -29,7 +30,7 @@ def main() -> None:
     parser = argparse.ArgumentParser(prog="opt-experiments")
     subparsers = parser.add_subparsers(dest="command", required=True)
 
-    for command in ("cso-smoke", "cso-grid", "zoadamm-smoke"):
+    for command in ("cso-smoke", "cso-grid", "zoadamm-smoke", "zoadamm-grid"):
         command_parser = subparsers.add_parser(command)
         command_parser.add_argument("--artifact-root", type=Path, default=Path("_artifacts"))
         command_parser.add_argument("--workers", type=int, default=None)
@@ -46,24 +47,30 @@ def main() -> None:
             help="compress convergence arrays; saves disk space but costs CPU",
         )
 
-    analyze = subparsers.add_parser("cso-analyze")
-    analyze.add_argument("--artifact-root", type=Path, default=Path("_artifacts"))
-    analyze.add_argument("--experiment-id", required=True)
+    for command in ("cso-analyze", "zoadamm-analyze"):
+        analyze = subparsers.add_parser(command)
+        analyze.add_argument("--artifact-root", type=Path, default=Path("_artifacts"))
+        analyze.add_argument("--experiment-id", required=True)
 
-    manifest = subparsers.add_parser("cso-grid-manifest")
+    for command in ("cso-grid-manifest", "zoadamm-grid-manifest"):
+        manifest = subparsers.add_parser(command)
     manifest.add_argument("--output", type=Path, default=Path("cso_configuration_grid.csv"))
 
     args = parser.parse_args()
 
-    if args.command == "cso-grid-manifest":
-        experiment = create_cso_grid_experiment()
+    if args.command in {"cso-grid-manifest", "zoadamm-grid-manifest"}:
+        experiment = (
+            create_cso_grid_experiment()
+            if args.command == "cso-grid-manifest"
+            else create_zoadamm_grid_experiment()
+        )
         frame = create_configuration_manifest(experiment)
         args.output.parent.mkdir(parents=True, exist_ok=True)
         frame.to_csv(args.output, index=False)
         print(f"wrote {len(frame):,} configurations to {args.output}", flush=True)
         return
 
-    if args.command == "cso-analyze":
+    if args.command in {"cso-analyze", "zoadamm-analyze"}:
         experiment_root = args.artifact_root / args.experiment_id
         experiment_path = experiment_root / "experiment.json"
         if not experiment_path.is_file():
@@ -80,16 +87,21 @@ def main() -> None:
             failures=experiment_root / "failures",
             analysis=experiment_root / "analysis",
         )
-        records = store.load_run_records()
-        run_count = len(records)
-        output = store.paths.analysis
-        output.mkdir(parents=True, exist_ok=True)
-        from .analysis.runs import create_run_table_from_records
-        frame = create_run_table_from_records(records)
-        frame.to_csv(output / "run_results.csv", index=False)
-        frame.to_parquet(output / "run_results.parquet", index=False)
-        print(f"run_results: {run_count:,} rows", flush=True)
-        print(f"output: {output}", flush=True)
+        experiment = (
+            create_cso_grid_experiment()
+            if args.command == "cso-analyze"
+            else create_zoadamm_grid_experiment()
+        )
+        store.experiment = experiment
+        if args.command == "cso-analyze":
+            from .analysis import analyze_cso, write_cso_analysis_artifacts
+            result = analyze_cso(experiment, store)
+            write_cso_analysis_artifacts(result, store.paths.analysis)
+        else:
+            from .analysis import analyze_zoadamm, write_zoadamm_analysis_artifacts
+            result = analyze_zoadamm(experiment, store)
+            write_zoadamm_analysis_artifacts(result, store.paths.analysis)
+        print(f"analysis completed: {store.paths.analysis}", flush=True)
         _ = payload
         return
 
@@ -99,6 +111,8 @@ def main() -> None:
         experiment = create_cso_grid_experiment()
     elif args.command == "zoadamm-smoke":
         experiment = create_zoadamm_smoke_experiment()
+    elif args.command == "zoadamm-grid":
+        experiment = create_zoadamm_grid_experiment()
     else:
         raise AssertionError(f"Unhandled command: {args.command!r}")
 

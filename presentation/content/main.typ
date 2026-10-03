@@ -170,13 +170,13 @@ Caminha na direção da #stress[melhor solução].
       table.header(strong[Parâmetro], table.cell(colspan: 3, strong[Possibilidades])),
 
       [population_size], [15], [30], [60],
-      [smp], [2], [3], [4],
+      [smp], [2], [3], [5],
       [srd], [0.1], [0.2], [0.4],
-      [cdc], [0.65], [0.85], [1.0],
+      [cdc], [0.60], [0.85], [1.0],
       [spc], [], [True], [False],
-      [max_velocity], [0.9], [1.9], [2.9],
+      [max_velocity], [1.0], [1.9], [3.0],
       [c1], [1.05], [2.05], [3.05],
-      [mixture_ratio], [0.05], [0.10], [0.20],
+      [mixture_ratio], [0.1], [0.3], [0.5],
     )
   ],
 )
@@ -198,14 +198,14 @@ Caminha na direção da #stress[melhor solução].
       strong[D=10], strong[D=100],
     ),
 
-    [population_size], [0.023453 #text(fill: gray)[± 0.011779]], [0.001885 #text(fill: gray)[± 0.001084]], [15], [30],
-    [srd], [0.019357 #text(fill: gray)[± 0.010052]], [0.003299 #text(fill: gray)[± 0.001901]], [0.4], [0.4],
-    [cdc], [0.014374 #text(fill: gray)[± 0.007540]], [0.002229 #text(fill: gray)[± 0.001272]], [0.85], [1.00],
-    [smp], [0.008137 #text(fill: gray)[± 0.004138]], [0.001332 #text(fill: gray)[± 0.000667]], [2], [4],
-    [c1], [0.005687 #text(fill: gray)[± 0.002844]], [0.000992 #text(fill: gray)[± 0.000502]], [1.05], [2.05],
-    [max_velocity], [0.005600 #text(fill: gray)[± 0.002887]], [0.002524 #text(fill: gray)[± 0.001365]], [0.9], [0.9],
-    [mixture_ratio], [0.004645 #text(fill: gray)[± 0.002352]], [0.003222 #text(fill: gray)[± 0.001856]], [0.10], [0.05],
-    [spc], [0.002451 #text(fill: gray)[± 0.001733]], [0.001626 #text(fill: gray)[± 0.001150]], [True], [False],
+    [population_size], [0.014971 #text(fill: gray)[± 0.007576]], [0.006271 #text(fill: gray)[± 0.003174]], [15], [15],
+    [smp], [0.000755 #text(fill: gray)[± 0.000404]], [0.003936 #text(fill: gray)[± 0.002204]], [5], [5],
+    [srd], [0.041717 #text(fill: gray)[± 0.022712]], [0.022032 #text(fill: gray)[± 0.012366]], [0.4], [0.4],
+    [cdc], [0.020129 #text(fill: gray)[± 0.010301]], [0.015254 #text(fill: gray)[± 0.008229]], [0.10], [1.00],
+    [spc], [0.003702 #text(fill: gray)[± 0.002617]], [0.004577 #text(fill: gray)[± 0.003237]], [False], [False],
+    [max_velocity], [0.030730 #text(fill: gray)[± 0.015957]], [0.018026 #text(fill: gray)[± 0.009564]], [1.0], [1.0],
+    [c1], [0.003796 #text(fill: gray)[± 0.001902]], [0.001477 #text(fill: gray)[± 0.000739]], [1.05], [3.05],
+    [mixture_ratio], [0.042087 #text(fill: gray)[± 0.023027]], [0.022469 #text(fill: gray)[± 0.012720]], [0.1], [0.1],
   )
 ]
 
@@ -226,14 +226,14 @@ Caminha na direção da #stress[melhor solução].
       strong[D=10], strong[D=100],
     ),
 
-    [srd], [0.275115 #text(fill: gray)[± 0.138753]], [0.177855 #text(fill: gray)[± 0.088961]], [0.1], [0.1],
-    [cdc], [0.159198 #text(fill: gray)[± 0.085463]], [0.095859 #text(fill: gray)[± 0.053787]], [0.65], [0.65],
-    [population_size], [0.067603 #text(fill: gray)[± 0.037044]], [0.015721 #text(fill: gray)[± 0.008811]], [60], [15],
-    [mixture_ratio], [0.059129 #text(fill: gray)[± 0.030868]], [0.037986 #text(fill: gray)[± 0.019542]], [0.2], [0.2],
-    [max_velocity], [0.028295 #text(fill: gray)[± 0.014332]], [0.021151 #text(fill: gray)[± 0.010633]], [2.9], [2.9],
-    [spc], [0.023536 #text(fill: gray)[± 0.016642]], [0.008293 #text(fill: gray)[± 0.005864]], [False], [True],
-    [smp], [0.022237 #text(fill: gray)[± 0.012558]], [0.032020 #text(fill: gray)[± 0.016720]], [2], [2],
-    [c1], [0.003584 #text(fill: gray)[± 0.001863]], [0.004207 #text(fill: gray)[± 0.002198]], [3.05], [3.05],
+    [population_size], [0.055211 #text(fill: gray)[± 0.029898]], [0.042154 #text(fill: gray)[± 0.021077]], [60], [15],
+    [smp], [0.062307 #text(fill: gray)[± 0.033537]], [0.068927 #text(fill: gray)[± 0.036307]], [2], [2],
+    [srd], [0.259802 #text(fill: gray)[± 0.130771]], [0.147541 #text(fill: gray)[± 0.073855]], [0.1], [0.1],
+    [cdc], [0.136344 #text(fill: gray)[± 0.072124]], [0.068039 #text(fill: gray)[± 0.036858]], [0.60], [0.60],
+    [spc], [0.030081 #text(fill: gray)[± 0.021270]], [0.049626 #text(fill: gray)[± 0.035091]], [True], [True],
+    [max_velocity], [0.044277 #text(fill: gray)[± 0.022142]], [0.034008 #text(fill: gray)[± 0.017026]], [3.0], [3.0],
+    [c1], [0.006277 #text(fill: gray)[± 0.003320]], [0.008641 #text(fill: gray)[± 0.004350]], [3.05], [3.05],
+    [mixture_ratio], [0.057456 #text(fill: gray)[± 0.029749]], [0.050910 #text(fill: gray)[± 0.025500]], [0.5], [0.5],
   )
 ]
 
@@ -254,14 +254,14 @@ Caminha na direção da #stress[melhor solução].
       strong[D=10], strong[D=100],
     ),
 
-    [cdc], [0.118847 #text(fill: gray)[± 0.066744]], [0.141658 #text(fill: gray)[± 0.075992]], [1.00], [1.00],
-    [mixture_ratio], [0.098336 #text(fill: gray)[± 0.056664]], [0.112093 #text(fill: gray)[± 0.056854]], [0.2], [0.2],
-    [srd], [0.078466 #text(fill: gray)[± 0.039398]], [0.085304 #text(fill: gray)[± 0.044882]], [0.4], [0.4],
-    [population_size], [0.062613 #text(fill: gray)[± 0.031438]], [0.029104 #text(fill: gray)[± 0.016574]], [30], [30],
-    [smp], [0.030782 #text(fill: gray)[± 0.015727]], [0.027571 #text(fill: gray)[± 0.013882]], [2], [2],
-    [max_velocity], [0.022715 #text(fill: gray)[± 0.012213]], [0.045666 #text(fill: gray)[± 0.023339]], [1.9], [2.9],
-    [spc], [0.018161 #text(fill: gray)[± 0.012842]], [0.048824 #text(fill: gray)[± 0.034524]], [False], [False],
-    [c1], [0.008490 #text(fill: gray)[± 0.004345]], [0.001090 #text(fill: gray)[± 0.000590]], [3.05], [3.05],
+    [population_size], [0.034065 #text(fill: gray)[± 0.017413]], [0.065646 #text(fill: gray)[± 0.033309]], [15], [15],
+    [smp], [0.042525 #text(fill: gray)[± 0.022932]], [0.030476 #text(fill: gray)[± 0.015276]], [2], [3],
+    [srd], [0.082253 #text(fill: gray)[± 0.041264]], [0.177588 #text(fill: gray)[± 0.091153]], [0.4], [0.4],
+    [cdc], [0.126034 #text(fill: gray)[± 0.068111]], [0.184061 #text(fill: gray)[± 0.095695]], [1.00], [1.00],
+    [spc], [0.018001 #text(fill: gray)[± 0.012728]], [0.069324 #text(fill: gray)[± 0.049019]], [False], [False],
+    [max_velocity], [0.021205 #text(fill: gray)[± 0.012169]], [0.010906 #text(fill: gray)[± 0.005453]], [1.9], [1.9],
+    [c1], [0.004718 #text(fill: gray)[± 0.002362]], [0.002193 #text(fill: gray)[± 0.001187]], [3.05], [3.05],
+    [mixture_ratio], [0.026075 #text(fill: gray)[± 0.013843]], [0.065678 #text(fill: gray)[± 0.035794]], [0.1], [0.5],
   )
 ]
 
@@ -282,13 +282,13 @@ Caminha na direção da #stress[melhor solução].
     ),
 
     [population_size], [15], [15], [60], [15], [15], [15],
-    [smp], [2], [2], [2], [2], [2], [3],
-    [srd], [0.1], [0.4], [0.4], [0.1], [0.4], [0.4],
-    [cdc], [0.65], [0.85], [1.0], [0.65], [1.0], [1.0],
-    [spc], [True], [True], [False], [True], [False], [False],
-    [max_velocity], [1.9], [0.9], [1.9], [2.9], [0.9], [2.9],
-    [c1], [1.05], [1.05], [1.05], [3.05], [1.05], [1.05],
-    [mixture_ratio], [0.1], [0.2], [0.05], [0.2], [0.2], [0.2],
+    [smp], [5], [5], [2], [2], [2], [3],
+    [srd], [0.4], [0.4], [0.1], [0.1], [0.4], [0.4],
+    [cdc], [1.0], [1.0], [0.6], [0.6], [1.0], [1.0],
+    [spc], [False], [False], [True], [True], [False], [False],
+    [max_velocity], [1.0], [1.0], [3.0], [3.0], [1.9], [1.9],
+    [c1], [1.05], [3.05], [3.05], [3.05], [3.05], [3.05],
+    [mixture_ratio], [0.1], [0.1], [0.5], [0.5], [0.1], [0.5],
   )
 ]
 
@@ -303,23 +303,26 @@ Caminha na direção da #stress[melhor solução].
 
     table.cell(rowspan: 2)[Rosenbrock],
     [10],
-    [8.143229 #text(fill: gray)[± 0.800269]],
-    [666],
-    [0.863739 #text(fill: gray)[± 0.390576]],
-    [100], [98.807553 #text(fill: gray)[± 0.035607]], [175], [0.469418 #text(fill: gray)[± 0.121666]],
+    [value #text(fill: gray)[± std]],
+    [0],
+    [value #text(fill: gray)[± std]],
+    [100], [value #text(fill: gray)[± std]],
+    [0], [value #text(fill: gray)[± std]],
 
     table.cell(rowspan: 2)[Schwefel],
     [10],
-    [1,939.375836 #text(fill: gray)[± 1,087.407235]],
-    [49],
-    [0.244775 #text(fill: gray)[± 0.046081]],
-    [100], [32,641.163942 #text(fill: gray)[± 1,749.415497]], [333], [0.379337 #text(fill: gray)[± 0.063816]],
+    [value #text(fill: gray)[± std]],
+    [0],
+    [value #text(fill: gray)[± std]],
+    [100], [value #text(fill: gray)[± std]],
+    [0], [value #text(fill: gray)[± std]],
 
     table.cell(rowspan: 2)[HappyCat],
     [10],
-    [13.695471 #text(fill: gray)[± 0.297935]],
-    [175],
-    [0.426719 #text(fill: gray)[± 0.069278]],
-    [100], [235.385327 #text(fill: gray)[± 7.869965]], [49], [0.341950 #text(fill: gray)[± 0.039851]],
+    [value #text(fill: gray)[± std]],
+    [0],
+    [value #text(fill: gray)[± std]],
+    [100], [value #text(fill: gray)[± std]],
+    [0], [value #text(fill: gray)[± std]],
   )
 ]

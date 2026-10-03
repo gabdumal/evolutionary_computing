@@ -1,4 +1,5 @@
 from optimization_experiments.algorithms.zoadamm import ZOAdaMMAdapter
+from optimization_experiments.benchmarks import evaluate_objective, evaluate_objective_batch
 from optimization_experiments.algorithms.zoadamm_spec import zoadamm_algorithm_specification
 from optimization_experiments.core import (
     AlgorithmConfiguration,
@@ -40,3 +41,19 @@ def test_zoadamm_is_deterministic_for_same_seed():
     assert first.objective.best_value == second.objective.best_value
     assert first.objective.best_solution == second.objective.best_solution
     assert first.convergence == second.convergence
+
+
+def test_batched_benchmarks_match_scalar_evaluation():
+    import numpy as np
+
+    rng = np.random.default_rng(123)
+    for name, lower, upper in (
+        ("sphere", -5.0, 5.0),
+        ("rosenbrock", -5.0, 5.0),
+        ("schwefel", -500.0, 500.0),
+        ("happycat", -100.0, 100.0),
+    ):
+        points = rng.uniform(lower, upper, size=(7, 5))
+        batch = evaluate_objective_batch(name, points)
+        scalar = np.array([evaluate_objective(name, point) for point in points])
+        np.testing.assert_allclose(batch, scalar, rtol=0.0, atol=1e-12)

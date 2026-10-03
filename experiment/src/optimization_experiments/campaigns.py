@@ -4,7 +4,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from .algorithms import AlgorithmRegistry, default_registry
-from .analysis import analyze_cso, write_cso_analysis_artifacts
+from .analysis import analyze_cso, write_cso_analysis_artifacts, analyze_zoadamm, write_zoadamm_analysis_artifacts
 from .artifacts import ArtifactStore
 from .core.models import ExperimentSpecification
 from .execution import ExecutionReport, ExperimentRunner
@@ -48,6 +48,9 @@ def run_campaign(
         if experiment.name.startswith("cso-grid"):
             analysis = analyze_cso(experiment, store)
             write_cso_analysis_artifacts(analysis, store.paths.analysis)
+        elif experiment.name.startswith("zoadamm-grid"):
+            analysis = analyze_zoadamm(experiment, store)
+            write_zoadamm_analysis_artifacts(analysis, store.paths.analysis)
         else:
             from .analysis import generate_result_artifacts
             generate_result_artifacts(experiment, store)
