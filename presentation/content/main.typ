@@ -185,9 +185,9 @@ Caminha na direção da #stress[melhor solução].
 
 == Rosenbrock
 
-#{
-  set text(size: 21pt)
-  table(
+#align(center + horizon)[
+  #set text(size: 21pt)
+  #table(
     columns: (auto, auto, auto, auto, auto),
 
     table.header(
@@ -207,15 +207,15 @@ Caminha na direção da #stress[melhor solução].
     [mixture_ratio], [0.004645 #text(fill: gray)[± 0.002352]], [0.003222 #text(fill: gray)[± 0.001856]], [0.10], [0.05],
     [spc], [0.002451 #text(fill: gray)[± 0.001733]], [0.001626 #text(fill: gray)[± 0.001150]], [True], [False],
   )
-}
+]
 
 #pagebreak()
 
 == Schwefel
 
-#{
-  set text(size: 21pt)
-  table(
+#align(center + horizon)[
+  #set text(size: 21pt)
+  #table(
     columns: (auto, auto, auto, auto, auto),
 
     table.header(
@@ -235,15 +235,15 @@ Caminha na direção da #stress[melhor solução].
     [smp], [0.022237 #text(fill: gray)[± 0.012558]], [0.032020 #text(fill: gray)[± 0.016720]], [2], [2],
     [c1], [0.003584 #text(fill: gray)[± 0.001863]], [0.004207 #text(fill: gray)[± 0.002198]], [3.05], [3.05],
   )
-}
+]
 
 #pagebreak()
 
 == HappyCat
 
-#{
-  set text(size: 21pt)
-  table(
+#align(center + horizon)[
+  #set text(size: 21pt)
+  #table(
     columns: (auto, auto, auto, auto, auto),
 
     table.header(
@@ -263,46 +263,63 @@ Caminha na direção da #stress[melhor solução].
     [spc], [0.018161 #text(fill: gray)[± 0.012842]], [0.048824 #text(fill: gray)[± 0.034524]], [False], [False],
     [c1], [0.008490 #text(fill: gray)[± 0.004345]], [0.001090 #text(fill: gray)[± 0.000590]], [3.05], [3.05],
   )
-}
+]
 
 #pagebreak()
 
 == Parâmetros selecionados
 
-#table(
-  columns: (auto, 1fr, 1fr, 1fr, 1fr, 1fr, 1fr),
+#align(center + horizon)[
+  #table(
+    columns: (auto, 1fr, 1fr, 1fr, 1fr, 1fr, 1fr),
 
-  table.header(
-    table.cell(rowspan: 2)[#strong[Parâmetro]],
-    table.cell(colspan: 2)[#strong[Rosenbrock]],
-    table.cell(colspan: 2)[#strong[Schwefel]],
-    table.cell(colspan: 2)[#strong[HappyCat]],
-    strong[D=10], strong[D=100], strong[D=10], strong[D=100], strong[D=10], strong[D=100],
-  ),
+    table.header(
+      table.cell(rowspan: 2)[#strong[Parâmetro]],
+      table.cell(colspan: 2)[#strong[Rosenbrock]],
+      table.cell(colspan: 2)[#strong[Schwefel]],
+      table.cell(colspan: 2)[#strong[HappyCat]],
+      strong[D=10], strong[D=100], strong[D=10], strong[D=100], strong[D=10], strong[D=100],
+    ),
 
-  [population_size], [15], [15], [60], [15], [15], [15],
-  [smp], [2], [2], [2], [2], [2], [3],
-  [srd], [0.1], [0.4], [0.4], [0.1], [0.4], [0.4],
-  [cdc], [0.65], [0.85], [1.0], [0.65], [1.0], [1.0],
-  [spc], [True], [True], [False], [True], [False], [False],
-  [max_velocity], [1.9], [0.9], [1.9], [2.9], [0.9], [2.9],
-  [c1], [1.05], [1.05], [1.05], [3.05], [1.05], [1.05],
-  [mixture_ratio], [0.1], [0.2], [0.05], [0.2], [0.2], [0.2],
-)
+    [population_size], [15], [15], [60], [15], [15], [15],
+    [smp], [2], [2], [2], [2], [2], [3],
+    [srd], [0.1], [0.4], [0.4], [0.1], [0.4], [0.4],
+    [cdc], [0.65], [0.85], [1.0], [0.65], [1.0], [1.0],
+    [spc], [True], [True], [False], [True], [False], [False],
+    [max_velocity], [1.9], [0.9], [1.9], [2.9], [0.9], [2.9],
+    [c1], [1.05], [1.05], [1.05], [3.05], [1.05], [1.05],
+    [mixture_ratio], [0.1], [0.2], [0.05], [0.2], [0.2], [0.2],
+  )
+]
 
 == Comparação
 
-#table(
-  columns: (auto, 1fr, 1fr, 1fr, 1fr),
+#align(center + horizon)[
+  #set text(size: 20pt)
+  #table(
+    columns: (auto, auto, 1fr, auto, auto),
 
-  table.header(strong[Algoritmo], strong[Dimensão], strong[Valor], strong[Iterações], strong[Tempo]),
+    table.header(strong[Algoritmo], strong[Di.], strong[Valor], strong[Iterações], strong[Tempo (s)]),
 
-  table.cell(rowspan: 2)[Rosenbrock], [10], [value ± std], [value ± std], [value ± std],
-  [100], [value ± std], [value ± std], [value ± std],
+    table.cell(rowspan: 2)[Rosenbrock],
+    [10],
+    [8.143229 #text(fill: gray)[± 0.800269]],
+    [666],
+    [0.863739 #text(fill: gray)[± 0.390576]],
+    [100], [98.807553 #text(fill: gray)[± 0.035607]], [175], [0.469418 #text(fill: gray)[± 0.121666]],
 
-  table.cell(rowspan: 2)[Schwefel], [10], [value ± std], [value ± std], [value ± std],
-  [100], [value ± std], [value ± std], [value ± std],
+    table.cell(rowspan: 2)[Schwefel],
+    [10],
+    [1,939.375836 #text(fill: gray)[± 1,087.407235]],
+    [49],
+    [0.244775 #text(fill: gray)[± 0.046081]],
+    [100], [32,641.163942 #text(fill: gray)[± 1,749.415497]], [333], [0.379337 #text(fill: gray)[± 0.063816]],
 
-  table.cell(rowspan: 2)[HappyCat], [10], [value ± std], [value ± std], [value ± std],
-  [100], [value ± std], [value ± std], [value ± std],
-)
+    table.cell(rowspan: 2)[HappyCat],
+    [10],
+    [13.695471 #text(fill: gray)[± 0.297935]],
+    [175],
+    [0.426719 #text(fill: gray)[± 0.069278]],
+    [100], [235.385327 #text(fill: gray)[± 7.869965]], [49], [0.341950 #text(fill: gray)[± 0.039851]],
+  )
+]
