@@ -179,6 +179,18 @@
     short: [#foreign_text[soft voting] ponderado],
     short_capitalized: [#foreign_text[Soft voting] ponderado],
   ),
+  (
+    key: "fitness",
+    short: foreign_text[fitness],
+  ),
+  (
+    key: "seeking",
+    short: foreign_text[seeking],
+  ),
+  (
+    key: "tracing",
+    short: foreign_text[tracing],
+  ),
 )
 
 

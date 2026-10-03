@@ -19,7 +19,7 @@ ARTIFACT_ROOT = DEFAULT_ARTIFACT_ROOT
 ALGORITHM_IMPORT_PATH = "niapy.algorithms.basic.CatSwarmOptimization"
 
 
-HYPERPARAMETER_GRID = {
+FIRST_HYPERPARAMETER_GRID = {
     "c1": (1.05, 2.05, 3.05),
     "cdc": (0.65, 0.85, 1.0),
     "max_velocity": (0.9, 1.9, 2.9),
@@ -50,7 +50,7 @@ def create_validation_experiment() -> ExperimentSpecification:
             parameters=DEFAULT_PARAMETERS_FOR_CSO,
         ),
         problems=PROBLEMS,
-        parameter_grid=HYPERPARAMETER_GRID,
+        parameter_grid=FIRST_HYPERPARAMETER_GRID,
         seeds=SEEDS,
         termination=TERMINATION,
         description=(

@@ -101,6 +101,16 @@
     short: "CSO",
     long: foreign_text[Cat Swarm Optimization],
   ),
+  (
+    key: "pso",
+    short: "PSO",
+    long: foreign_text[Particle Swarm Optimization],
+  ),
+  (
+    key: "aco",
+    short: "ACO",
+    long: foreign_text[Ant Colony Optimization],
+  ),
 )
 
 #let glossary_entries = (
