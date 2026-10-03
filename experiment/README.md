@@ -15,7 +15,7 @@ ExperimentSpecification
  AlgorithmRegistry
         │
         ├── CSO → NiaPyAlgorithmAdapter
-        ├── ZO-AdaMM → future adapter
+        ├── ZO-AdaMM → NumPy adapter
         └── Hybrid → future adapter
         │
         ▼
@@ -25,6 +25,7 @@ ExperimentSpecification
         ├── function evaluations
         ├── iterations
         ├── CPU seconds
+        ├── wall-clock seconds
         └── convergence vs function evaluations
         │
         ▼
@@ -105,6 +106,7 @@ calculated_value
 function_evaluations
 iterations
 cpu_seconds
+wall_seconds
 ```
 
 Statistics aggregate by configuration/scenario and provide:
@@ -116,14 +118,22 @@ mean
 std
 ```
 
-for objective value, function evaluations, iterations and CPU time.
+for objective value, function evaluations, iterations, CPU time and per-run
+wall-clock time.
 
-## Scientific timing policy
+## Timing and execution logging
 
-The scientific timing metric is CPU time measured inside the worker with
-`time.process_time()`. The framework deliberately keeps wall-clock timing out
-of the algorithm result so queueing and scheduling overhead do not become an
-algorithm metric.
+Each run records two distinct timing metrics:
+
+- `cpu_seconds`: CPU time measured inside the worker with `time.process_time()`.
+- `wall_seconds`: elapsed time for the run measured with `time.perf_counter()`.
+
+The runner uses wall-clock time for campaign progress, throughput and ETA.
+Progress is emitted at configurable fraction/time thresholds rather than for
+every completed run, keeping console I/O small for large campaigns. Each
+progress line reports global progress, session progress, elapsed time, runs/s,
+ETA, cumulative CPU time, failures and the most recently completed run's
+wall/CPU time and function-evaluation count.
 
 ## Environment provenance
 

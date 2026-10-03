@@ -72,9 +72,11 @@ class NiaPyAlgorithmAdapter(AlgorithmAdapter):
             max_evals=specification.budget.max_function_evaluations,
         )
 
+        wall_started = time.perf_counter()
         started = time.process_time()
         best_solution, best_fitness = algorithm.run(task)
         cpu_seconds = time.process_time() - started
+        wall_seconds = time.perf_counter() - wall_started
 
         if best_solution is None or best_fitness is None:
             raise RuntimeError("NiaPy returned no best solution or best fitness.")
@@ -109,7 +111,10 @@ class NiaPyAlgorithmAdapter(AlgorithmAdapter):
             ),
             function_evaluations=function_evaluations,
             iterations=iterations,
-            timing=TimingResult(cpu_seconds=cpu_seconds),
+            timing=TimingResult(
+                cpu_seconds=cpu_seconds,
+                wall_seconds=wall_seconds,
+            ),
             convergence=ConvergenceTrace(
                 function_evaluations=convergence_evaluations,
                 best_values=convergence_values,

@@ -59,6 +59,9 @@ def test_fake_runner_round_trip(tmp_path: Path):
 
     validation = validate_experiment(experiment, store)
     assert report.completed_run_count == 2
+    assert report.failed_run_count == 0
+    assert report.wall_seconds > 0.0
+    assert report.runs_per_second > 0.0
     assert validation.valid
     assert len(store.completed_run_ids()) == 2
 

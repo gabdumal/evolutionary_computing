@@ -14,6 +14,7 @@ ANALYSIS_METRICS = (
     "function_evaluations",
     "iterations",
     "cpu_seconds",
+    "wall_seconds",
 )
 
 
@@ -52,6 +53,7 @@ def create_run_table(results: Sequence[RunResult]) -> pd.DataFrame:
             "function_evaluations": result.function_evaluations,
             "iterations": result.iterations,
             "cpu_seconds": result.timing.cpu_seconds,
+            "wall_seconds": result.timing.wall_seconds,
         }
 
         for parameter in parameter_names:
@@ -115,6 +117,11 @@ def create_run_table_from_records(records: Sequence[dict[str, Any]]) -> pd.DataF
             "function_evaluations": int(metrics["function_evaluations"]),
             "iterations": int(metrics["iterations"]),
             "cpu_seconds": float(metrics["cpu_seconds"]),
+            "wall_seconds": (
+                float(metrics["wall_seconds"])
+                if metrics.get("wall_seconds") is not None
+                else float("nan")
+            ),
         }
         row.update({parameter: configuration["parameters"].get(parameter) for parameter in parameter_names})
         rows.append(row)

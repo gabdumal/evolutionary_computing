@@ -135,6 +135,7 @@ class ArtifactStore:
                 "function_evaluations": result.function_evaluations,
                 "iterations": result.iterations,
                 "cpu_seconds": result.timing.cpu_seconds,
+                "wall_seconds": result.timing.wall_seconds,
             },
             "convergence": {
                 "path": str(convergence_path.relative_to(self.experiment_root)),
@@ -209,7 +210,14 @@ class ArtifactStore:
             ),
             function_evaluations=int(metrics["function_evaluations"]),
             iterations=int(metrics["iterations"]),
-            timing=TimingResult(cpu_seconds=float(metrics["cpu_seconds"])),
+            timing=TimingResult(
+                cpu_seconds=float(metrics["cpu_seconds"]),
+                wall_seconds=(
+                    float(metrics["wall_seconds"])
+                    if metrics.get("wall_seconds") is not None
+                    else None
+                ),
+            ),
             convergence=ConvergenceTrace(
                 function_evaluations=evaluations,
                 best_values=values,
@@ -244,6 +252,11 @@ class ArtifactStore:
         completed: int,
         total: int,
     ) -> None:
+        """Backward-compatible minimal progress output.
+
+        Detailed timing-aware progress is owned by :class:`ExperimentRunner`;
+        this method remains for callers that only have completion counts.
+        """
         if total <= 0:
             return
         percentage = completed / total * 100.0

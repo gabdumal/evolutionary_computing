@@ -11,6 +11,17 @@ from .experiments.cso_campaign import create_cso_grid_experiment
 from .experiments.zoadamm import create_zoadamm_smoke_experiment
 
 
+def _format_duration(seconds: float) -> str:
+    seconds = max(0.0, seconds)
+    whole = int(seconds)
+    days, remainder = divmod(whole, 86_400)
+    hours, remainder = divmod(remainder, 3_600)
+    minutes, secs = divmod(remainder, 60)
+    if days:
+        return f"{days}d {hours:02d}:{minutes:02d}:{secs:02d}"
+    return f"{hours:02d}:{minutes:02d}:{secs:02d}"
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(prog="opt-experiments")
     subparsers = parser.add_subparsers(dest="command", required=True)
@@ -79,7 +90,19 @@ def main() -> None:
         artifact_root=args.artifact_root,
         max_workers=args.workers,
     )
-    print(report, flush=True)
+    execution = report.execution
+    print(
+        "CampaignReport:"
+        f" experiment_id={execution.experiment_id} | "
+        f"completed={execution.completed_run_count:,} | "
+        f"failed={execution.failed_run_count:,} | "
+        f"skipped={execution.skipped_completed_count:,} | "
+        f"elapsed={_format_duration(execution.wall_seconds)} | "
+        f"rate={execution.runs_per_second:.2f} runs/s | "
+        f"CPU={_format_duration(execution.cpu_seconds)} | "
+        f"valid={report.validation.valid}",
+        flush=True,
+    )
 
 
 if __name__ == "__main__":

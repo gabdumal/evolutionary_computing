@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+import math
 from typing import Any, Mapping
 
 
@@ -195,10 +196,15 @@ class ObjectiveResult:
 @dataclass(frozen=True, slots=True)
 class TimingResult:
     cpu_seconds: float
+    wall_seconds: float | None = None
 
     def __post_init__(self) -> None:
-        if self.cpu_seconds < 0:
-            raise ValueError("cpu_seconds cannot be negative.")
+        if not math.isfinite(self.cpu_seconds) or self.cpu_seconds < 0:
+            raise ValueError("cpu_seconds must be finite and non-negative.")
+        if self.wall_seconds is not None and (
+            not math.isfinite(self.wall_seconds) or self.wall_seconds < 0
+        ):
+            raise ValueError("wall_seconds must be finite and non-negative when provided.")
 
 
 @dataclass(frozen=True, slots=True)

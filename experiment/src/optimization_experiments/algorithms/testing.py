@@ -31,7 +31,7 @@ class FakeAlgorithmAdapter(AlgorithmAdapter):
             ),
             function_evaluations=evaluations,
             iterations=1,
-            timing=TimingResult(cpu_seconds=0.0),
+            timing=TimingResult(cpu_seconds=0.0, wall_seconds=0.0),
             convergence=ConvergenceTrace(
                 function_evaluations=(1,),
                 best_values=(float(value),),

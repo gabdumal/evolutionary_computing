@@ -49,6 +49,7 @@ class CallableAlgorithmAdapter(AlgorithmAdapter):
             evaluation_count += 1
             return float(scenario_objective(scenario, x))
 
+        wall_started = time.perf_counter()
         started = time.process_time()
         (
             best_solution,
@@ -65,6 +66,7 @@ class CallableAlgorithmAdapter(AlgorithmAdapter):
             scenario.upper_bound,
         )
         cpu_seconds = time.process_time() - started
+        wall_seconds = time.perf_counter() - wall_started
 
         if evaluation_count == 0:
             raise RuntimeError("Optimizer performed no objective evaluations.")
@@ -80,7 +82,10 @@ class CallableAlgorithmAdapter(AlgorithmAdapter):
             ),
             function_evaluations=evaluation_count,
             iterations=int(iterations),
-            timing=TimingResult(cpu_seconds=cpu_seconds),
+            timing=TimingResult(
+                cpu_seconds=cpu_seconds,
+                wall_seconds=wall_seconds,
+            ),
             convergence=ConvergenceTrace(
                 function_evaluations=tuple(int(v) for v in convergence_evaluations),
                 best_values=tuple(float(v) for v in convergence_values),

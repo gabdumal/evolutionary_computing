@@ -76,6 +76,7 @@ class ZOAdaMMAdapter(AlgorithmAdapter):
         convergence_evaluations: list[int] = []
         convergence_values: list[float] = []
 
+        wall_started = time.perf_counter()
         started = time.process_time()
 
         # The current-point value is reusable between iterations for deterministic
@@ -170,6 +171,7 @@ class ZOAdaMMAdapter(AlgorithmAdapter):
                 break
 
         cpu_seconds = time.process_time() - started
+        wall_seconds = time.perf_counter() - wall_started
 
         if not np.isfinite(best_value):
             raise RuntimeError("ZO-AdaMM completed without a finite objective value.")
@@ -182,7 +184,10 @@ class ZOAdaMMAdapter(AlgorithmAdapter):
             ),
             function_evaluations=evaluations,
             iterations=iterations,
-            timing=TimingResult(cpu_seconds=cpu_seconds),
+            timing=TimingResult(
+                cpu_seconds=cpu_seconds,
+                wall_seconds=wall_seconds,
+            ),
             convergence=ConvergenceTrace(
                 function_evaluations=tuple(convergence_evaluations),
                 best_values=tuple(convergence_values),
