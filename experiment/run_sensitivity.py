@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-"""Run and persist deterministic sensitivity analysis for the CSO experiment."""
+"""Run and persist deterministic, problem-specific sensitivity analysis."""
 
 import argparse
 import importlib
@@ -16,6 +16,7 @@ from sensitivity_analysis import (
     analyze_sensitivity,
     create_configuration_comparison_table,
     create_parameter_effect_table,
+    create_selected_configuration_table,
 )
 
 ARTIFACT_ROOT = DEFAULT_ARTIFACT_ROOT
@@ -33,6 +34,7 @@ def main() -> None:
             f"{arguments.experiment_module}.{arguments.experiment_factory} "
             "did not return an ExperimentSpecification."
         )
+
     artifact_store = ExperimentArtifactStore(
         arguments.artifact_root,
         experiment,
@@ -56,15 +58,19 @@ def main() -> None:
         index=False,
     )
     create_configuration_comparison_table(analysis).to_csv(
-        output_directory / "configuration_results.csv",
+        output_directory / "problem_configuration_results.csv",
         index=False,
     )
-    analysis.parameter_table.to_csv(
-        output_directory / "parameter_results.csv",
+    analysis.problem_parameter_table.to_csv(
+        output_directory / "problem_parameter_results.csv",
         index=False,
     )
     create_parameter_effect_table(analysis).to_csv(
-        output_directory / "parameter_effect_summary.csv",
+        output_directory / "problem_parameter_effect_summary.csv",
+        index=False,
+    )
+    create_selected_configuration_table(analysis).to_csv(
+        output_directory / "selected_configurations.csv",
         index=False,
     )
 
@@ -72,7 +78,9 @@ def main() -> None:
         "experiment_id": analysis.experiment_id,
         "algorithm": analysis.algorithm_name,
         "design": analysis.design,
+        "sensitivity_scope": "problem",
         "parameter_names": list(analysis.parameter_names),
+        "problems": list(analysis.problems),
         "completed_run_count": analysis.completed_run_count,
         "analyzed_run_count": analysis.analyzed_run_count,
         "expected_run_count": analysis.validation_report.expected_run_count,
@@ -80,7 +88,13 @@ def main() -> None:
         "validation_error_count": analysis.validation_report.error_count,
         "validation_warning_count": analysis.validation_report.warning_count,
         "configuration_count": analysis.configuration_count,
+        "problem_configuration_count": analysis.problem_configuration_count,
         "scenario_count": analysis.scenario_count,
+        "selection_rule": (
+            "minimum mean normalized gap per problem; ties within tolerance are "
+            "resolved by minimum worst normalized gap, then minimum mean CPU time, "
+            "then configuration ID"
+        ),
     }
     with (output_directory / "metadata.json").open(
         "w",
@@ -97,8 +111,11 @@ def main() -> None:
 
     print(f"Experiment: {experiment.name}")
     print(f"Experiment ID: {experiment.experiment_id}")
+    print("Sensitivity scope: problem")
     print(f"Design: {analysis.design}")
     print(f"Configurations: {analysis.configuration_count}")
+    print(f"Problem/configuration rows: {analysis.problem_configuration_count}")
+    print(f"Problems: {', '.join(analysis.problems)}")
     print(f"Scenarios: {analysis.scenario_count}")
     print(
         "Runs: "
@@ -107,15 +124,17 @@ def main() -> None:
     print(f"Validation valid: {analysis.validation_report.is_valid}")
     print(f"Analysis output: {output_directory}")
 
-    _print_parameter_effects(analysis.parameter_table)
-    _print_configuration_results(create_configuration_comparison_table(analysis))
+    _print_parameter_effects(analysis.problem_parameter_table)
+    _print_configuration_results(analysis.problem_configuration_table)
+    _print_selected_configurations(analysis.selected_configuration_table)
 
 
 def _parse_arguments() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description=(
-            "Analyze a completed CSO experiment without executing any "
-            "additional optimization runs."
+            "Analyze a completed optimization sensitivity experiment without "
+            "executing additional optimization runs. Configuration performance "
+            "and parameter effects are computed independently for each problem."
         )
     )
     parser.add_argument(
@@ -174,11 +193,12 @@ def _load_experiment_factory(
 
 def _print_parameter_effects(parameter_table: pd.DataFrame) -> None:
     if parameter_table.empty:
-        print("No parameter sensitivity results.")
+        print("\nNo parameter sensitivity results.")
         return
 
-    print("\nParameter effects:")
+    print("\nProblem-specific parameter effects:")
     display_columns = [
+        "problem",
         "parameter",
         "parameter_value",
         "mean_normalized_gap",
@@ -195,35 +215,64 @@ def _print_parameter_effects(parameter_table: pd.DataFrame) -> None:
 
 def _print_configuration_results(configuration_table: pd.DataFrame) -> None:
     if configuration_table.empty:
-        print("No configuration sensitivity results.")
+        print("\nNo configuration sensitivity results.")
         return
 
-    print("\nConfiguration results:")
+    print("\nProblem-specific configuration results:")
     parameter_columns = [
         column
         for column in configuration_table.columns
         if column
         not in {
+            "problem",
             "configuration_id",
             "algorithm",
-            "scenario_count",
+            "dimension_count",
             "mean_normalized_gap",
             "std_normalized_gap",
+            "mean_seed_std_normalized_gap",
+            "max_seed_std_normalized_gap",
             "mean_rank",
             "worst_normalized_gap",
+            "mean_cpu_seconds",
+            "mean_function_evaluations",
         }
         and not column.endswith("__key")
     ]
     display_columns = [
+        "problem",
         "configuration_id",
         *parameter_columns,
         "mean_normalized_gap",
         "std_normalized_gap",
         "mean_rank",
         "worst_normalized_gap",
+        "mean_cpu_seconds",
     ]
     print(
         configuration_table.loc[:, display_columns].to_string(
+            index=False,
+            float_format=lambda value: f"{value:.6f}",
+        )
+    )
+
+
+def _print_selected_configurations(selected_table: pd.DataFrame) -> None:
+    if selected_table.empty:
+        print("\nNo selected configurations.")
+        return
+
+    print("\nSelected configuration per problem:")
+    display_columns = [
+        "problem",
+        "configuration_id",
+        "selection_status",
+        "mean_normalized_gap",
+        "worst_normalized_gap",
+        "mean_cpu_seconds",
+    ]
+    print(
+        selected_table.loc[:, display_columns].to_string(
             index=False,
             float_format=lambda value: f"{value:.6f}",
         )

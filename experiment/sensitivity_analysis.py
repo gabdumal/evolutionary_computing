@@ -1,42 +1,41 @@
 from __future__ import annotations
 
-"""Deterministic parameter-sensitivity analysis for optimization experiments.
+"""Deterministic, problem-specific parameter-sensitivity analysis.
 
 The analysis layer consumes completed experiment artifacts only. It never
-executes an optimizer and it never changes the stored experiment results.
+executes an optimizer and never modifies persisted results.
 
 The primary performance measure is a scenario-normalized performance gap:
 
     gap = (oriented_value - scenario_best) / (scenario_worst - scenario_best)
 
 where ``oriented_value`` is the reported objective value for minimization and
-its negation for maximization. Consequently, lower values are always better,
-and each problem/dimension scenario contributes equally to macro averages.
+its negation for maximization. Lower values are always better.
 
-The analysis first aggregates replications for each configuration within each
-problem/dimension scenario, then computes normalized scenario performance,
-then computes configuration-level macro performance, and finally computes
-marginal parameter effects from those configuration-level results.
+The aggregation is deliberately problem-specific:
 
-This is intentionally descriptive rather than inferential. With a full
-factorial parameter grid, marginal effects average over the other parameters;
-they should therefore not be interpreted as causal effects when interactions
-are substantial. A single-parameter grid provides a cleaner one-parameter
-sensitivity experiment.
+1. Replications are aggregated for each configuration within each
+   problem/dimension scenario.
+2. Configurations are compared only against other configurations from the
+   same problem and dimension.
+3. A configuration's problem-level performance is the equally weighted mean
+   across that problem's dimensions.
+4. Parameter effects are calculated independently for each problem.
+5. One configuration is selected independently for each problem using a
+   deterministic lexicographic rule.
+
+No performance value is averaged across different benchmark problems.
 """
 
 import json
 from collections.abc import Iterable, Mapping
 from dataclasses import dataclass
 from math import isfinite
-from typing import Final, Literal, TypeAlias, cast
+from typing import Any, Final, Literal, TypeAlias, cast
 
 import pandas as pd
 
-from experiment_artifacts import (
-    ExperimentArtifactStore,
-    ExperimentRunResult,
-)
+from experiment_artifacts import ExperimentArtifactStore, ExperimentRunResult
 from experiment_specifications import (
     ExperimentRunSpecification,
     ExperimentSpecification,
@@ -60,19 +59,21 @@ class SensitivityAnalysisError(RuntimeError):
 
 @dataclass(frozen=True, slots=True)
 class SensitivityAnalysis:
-    """Contain all deterministic sensitivity-analysis tables and metadata."""
+    """Contain all deterministic problem-specific sensitivity tables."""
 
     experiment_id: str
     algorithm_name: str
     parameter_names: tuple[str, ...]
+    problems: tuple[str, ...]
     design: SensitivityDesign
     completed_run_count: int
     analyzed_run_count: int
     validation_report: ValidationReport
     run_table: pd.DataFrame
     scenario_table: pd.DataFrame
-    configuration_table: pd.DataFrame
-    parameter_table: pd.DataFrame
+    problem_configuration_table: pd.DataFrame
+    problem_parameter_table: pd.DataFrame
+    selected_configuration_table: pd.DataFrame
 
     @property
     def is_complete(self) -> bool:
@@ -82,23 +83,64 @@ class SensitivityAnalysis:
     @property
     def configuration_count(self) -> int:
         """Return the number of algorithm configurations represented."""
-        return len(self.configuration_table)
+        if self.problem_configuration_table.empty:
+            return 0
+        return int(self.problem_configuration_table["configuration_id"].nunique())
+
+    @property
+    def problem_configuration_count(self) -> int:
+        """Return the number of problem/configuration combinations represented."""
+        return len(self.problem_configuration_table)
 
     @property
     def scenario_count(self) -> int:
         """Return the number of problem/dimension scenarios represented."""
+        if self.scenario_table.empty:
+            return 0
         return len(self.scenario_table[["problem", "dimension"]].drop_duplicates())
 
-    def parameter_effect(self, parameter_name: str) -> pd.DataFrame:
-        """Return sensitivity results for one configured parameter."""
+    def configuration_results(self, problem: str) -> pd.DataFrame:
+        """Return problem-specific configuration results."""
+        _validate_problem_name(problem, self.problems)
+        return self.problem_configuration_table.loc[
+            self.problem_configuration_table["problem"] == problem
+        ].reset_index(drop=True)
+
+    def parameter_effect(
+        self,
+        problem: str,
+        parameter_name: str,
+    ) -> pd.DataFrame:
+        """Return sensitivity results for one parameter within one problem."""
+        _validate_problem_name(problem, self.problems)
+
         if parameter_name not in self.parameter_names:
             raise KeyError(
                 f"Parameter {parameter_name!r} is not part of the sensitivity grid."
             )
 
-        return self.parameter_table.loc[
-            self.parameter_table["parameter"] == parameter_name
+        return self.problem_parameter_table.loc[
+            (self.problem_parameter_table["problem"] == problem)
+            & (self.problem_parameter_table["parameter"] == parameter_name)
         ].reset_index(drop=True)
+
+    def selected_configuration(self, problem: str) -> pd.Series:
+        """Return the selected configuration row for one problem."""
+        _validate_problem_name(problem, self.problems)
+        rows = self.selected_configuration_table.loc[
+            self.selected_configuration_table["problem"] == problem
+        ]
+        if len(rows) != 1:
+            raise SensitivityAnalysisError(
+                f"Expected exactly one selected configuration for {problem!r}; "
+                f"found {len(rows)}."
+            )
+        return rows.iloc[0].copy()
+
+
+# ---------------------------------------------------------------------------
+# Public analysis entry point
+# ---------------------------------------------------------------------------
 
 
 def analyze_sensitivity(
@@ -108,16 +150,15 @@ def analyze_sensitivity(
     require_complete: bool = True,
     performance_tolerance: float = DEFAULT_PERFORMANCE_TOLERANCE,
 ) -> SensitivityAnalysis:
-    """Analyze parameter sensitivity from a completed experiment.
+    """Analyze parameter sensitivity independently for every problem.
 
-    ``expected_experiment`` is required deliberately. Sensitivity analysis
-    needs the declared Cartesian parameter grid to distinguish parameter
-    levels from fixed algorithm parameters and to verify that the available
-    artifacts correspond to the intended experiment.
+    The supplied experiment must declare a Cartesian sensitivity grid. The
+    analysis never computes a configuration score by pooling different
+    problems together. Dimensions within the same problem are equally weighted.
 
     By default every expected run must exist and be valid. Setting
-    ``require_complete=False`` permits analysis of the valid subset, while the
-    returned validation report still records missing or invalid runs.
+    ``require_complete=False`` permits analysis of the valid completed subset,
+    while the validation report still records missing or invalid runs.
     """
     _validate_performance_tolerance(performance_tolerance)
     _validate_sensitivity_grid(expected_experiment)
@@ -152,13 +193,17 @@ def analyze_sensitivity(
         analyzed_results,
         performance_tolerance=performance_tolerance,
     )
-    configuration_table = _create_configuration_table(
+    problem_configuration_table = _create_problem_configuration_table(
         scenario_table,
         expected_experiment,
     )
-    parameter_table = _create_parameter_table(
-        configuration_table,
+    problem_parameter_table = _create_problem_parameter_table(
+        problem_configuration_table,
         expected_experiment,
+    )
+    selected_configuration_table = _select_problem_configurations(
+        problem_configuration_table,
+        performance_tolerance=performance_tolerance,
     )
 
     design = (
@@ -171,24 +216,40 @@ def analyze_sensitivity(
         experiment_id=expected_experiment.experiment_id,
         algorithm_name=expected_experiment.algorithm.display_name,
         parameter_names=tuple(expected_experiment.parameter_grid),
+        problems=tuple(problem.name for problem in expected_experiment.problems),
         design=design,
         completed_run_count=len(completed_results),
         analyzed_run_count=len(analyzed_results),
         validation_report=validation_report,
         run_table=run_table,
         scenario_table=scenario_table,
-        configuration_table=configuration_table,
-        parameter_table=parameter_table,
+        problem_configuration_table=problem_configuration_table,
+        problem_parameter_table=problem_parameter_table,
+        selected_configuration_table=selected_configuration_table,
     )
+
+
+# ---------------------------------------------------------------------------
+# Public table helpers
+# ---------------------------------------------------------------------------
+
+
+def create_configuration_comparison_table(
+    sensitivity_analysis: SensitivityAnalysis,
+) -> pd.DataFrame:
+    """Return problem-specific configuration performance."""
+    return sensitivity_analysis.problem_configuration_table.copy()
 
 
 def create_parameter_effect_table(
     sensitivity_analysis: SensitivityAnalysis,
 ) -> pd.DataFrame:
-    """Return one compact row per parameter with its observed marginal range."""
-    if sensitivity_analysis.parameter_table.empty:
+    """Return observed parameter-effect ranges separately for each problem."""
+    table = sensitivity_analysis.problem_parameter_table
+    if table.empty:
         return pd.DataFrame(
             columns=(
+                "problem",
                 "parameter",
                 "level_count",
                 "minimum_mean_normalized_gap",
@@ -198,54 +259,45 @@ def create_parameter_effect_table(
         )
 
     records: list[dict[str, object]] = []
-
-    parameter_groups = sensitivity_analysis.parameter_table.groupby(
-        "parameter",
+    for (problem, parameter), rows in table.groupby(
+        ["problem", "parameter"],
         sort=False,
-    )
-
-    for parameter_name, parameter_levels in parameter_groups:
-        mean_gaps = parameter_levels["mean_normalized_gap"]
+    ):
+        mean_gaps = rows["mean_normalized_gap"]
         records.append(
             {
-                "parameter": parameter_name,
-                "level_count": int(parameter_levels["parameter_value"].nunique()),
+                "problem": problem,
+                "parameter": parameter,
+                "level_count": int(rows["parameter_value"].nunique()),
                 "minimum_mean_normalized_gap": float(mean_gaps.min()),
                 "maximum_mean_normalized_gap": float(mean_gaps.max()),
                 "effect_range": float(mean_gaps.max() - mean_gaps.min()),
             }
         )
 
-    return pd.DataFrame.from_records(records)
+    return (
+        pd.DataFrame.from_records(records)
+        .sort_values(
+            ["problem", "parameter"],
+            kind="stable",
+        )
+        .reset_index(drop=True)
+    )
 
 
-def create_configuration_comparison_table(
+def create_selected_configuration_table(
     sensitivity_analysis: SensitivityAnalysis,
 ) -> pd.DataFrame:
-    """Return configuration performance together with its parameter values."""
-    if sensitivity_analysis.configuration_table.empty:
-        return sensitivity_analysis.configuration_table.copy()
-
-    parameter_names = sensitivity_analysis.parameter_names
-    columns = [
-        "configuration_id",
-        "algorithm",
-        *parameter_names,
-        "scenario_count",
-        "mean_normalized_gap",
-        "std_normalized_gap",
-        "mean_seed_std_normalized_gap",
-        "max_seed_std_normalized_gap",
-        "mean_rank",
-        "worst_normalized_gap",
-    ]
-
-    return sensitivity_analysis.configuration_table.loc[:, columns].copy()
+    """Return one deterministically selected configuration per problem."""
+    return sensitivity_analysis.selected_configuration_table.copy()
 
 
-def _validate_sensitivity_grid(
-    experiment: ExperimentSpecification,
-) -> None:
+# ---------------------------------------------------------------------------
+# Validation and result selection
+# ---------------------------------------------------------------------------
+
+
+def _validate_sensitivity_grid(experiment: ExperimentSpecification) -> None:
     parameter_grid = experiment.parameter_grid
 
     if not parameter_grid:
@@ -315,6 +367,11 @@ def _select_analyzable_results(
 
     selected.sort(key=lambda result: result.run_specification.run_id)
     return tuple(selected)
+
+
+# ---------------------------------------------------------------------------
+# Run and scenario tables
+# ---------------------------------------------------------------------------
 
 
 def _create_run_table(
@@ -405,23 +462,32 @@ def _create_scenario_table(
                 "scenario": _scenario_identifier(first_run),
                 "optimization": optimization,
                 "replications": len(group),
-                "mean_best_value": float(pd.Series(raw_values).mean()),
+                "mean_best_value": float(pd.Series(raw_values, dtype="float64").mean()),
                 "std_best_value": _safe_standard_deviation(raw_values),
-                "median_best_value": float(pd.Series(raw_values).median()),
+                "median_best_value": float(
+                    pd.Series(raw_values, dtype="float64").median()
+                ),
                 "minimum_best_value": float(min(raw_values)),
                 "maximum_best_value": float(max(raw_values)),
                 "mean_function_evaluations": float(
-                    pd.Series([result.function_evaluations for result in group]).mean()
+                    pd.Series(
+                        [result.function_evaluations for result in group],
+                        dtype="float64",
+                    ).mean()
                 ),
                 "mean_cpu_seconds": float(
-                    pd.Series([result.cpu_seconds for result in group]).mean()
+                    pd.Series(
+                        [result.cpu_seconds for result in group],
+                        dtype="float64",
+                    ).mean()
                 ),
-                "oriented_mean_best_value": float(pd.Series(oriented_values).mean()),
+                "oriented_mean_best_value": float(
+                    pd.Series(oriented_values, dtype="float64").mean()
+                ),
             }
         )
 
     table = pd.DataFrame.from_records(records)
-
     if table.empty:
         return table
 
@@ -429,10 +495,8 @@ def _create_scenario_table(
     table["std_normalized_gap_across_seeds"] = 0.0
     table["scenario_rank"] = 0.0
 
-    for scenario, scenario_rows in table.groupby(
-        ["problem", "dimension"],
-        sort=False,
-    ):
+    grouped_scenarios = table.groupby(["problem", "dimension"], sort=False)
+    for (problem_name, dimension), scenario_rows in grouped_scenarios:
         indices = scenario_rows.index
         oriented_values = scenario_rows["oriented_mean_best_value"]
         scenario_best = float(oriented_values.min())
@@ -440,11 +504,7 @@ def _create_scenario_table(
         spread = scenario_worst - scenario_best
 
         if spread <= performance_tolerance:
-            normalized_gaps = pd.Series(
-                0.0,
-                index=indices,
-                dtype="float64",
-            )
+            normalized_gaps = pd.Series(0.0, index=indices, dtype="float64")
         else:
             normalized_gaps = (oriented_values - scenario_best) / spread
 
@@ -454,12 +514,11 @@ def _create_scenario_table(
             ascending=True,
         )
 
+        scenario_key = (str(problem_name), int(cast(Any, dimension)))
         for index, row in scenario_rows.iterrows():
             configuration_id = str(row["configuration_id"])
-            scenario_problem = str(cast(str, scenario[0]))
-            scenario_dimension = int(cast(int, row["dimension"]))
             group = grouped_results[
-                (scenario_problem, scenario_dimension, configuration_id)
+                (scenario_key[0], scenario_key[1], configuration_id)
             ]
             seed_oriented_values = [
                 _orient_value(
@@ -486,7 +545,12 @@ def _create_scenario_table(
     ).reset_index(drop=True)
 
 
-def _create_configuration_table(
+# ---------------------------------------------------------------------------
+# Problem-specific aggregation and parameter effects
+# ---------------------------------------------------------------------------
+
+
+def _create_problem_configuration_table(
     scenario_table: pd.DataFrame,
     experiment: ExperimentSpecification,
 ) -> pd.DataFrame:
@@ -494,19 +558,19 @@ def _create_configuration_table(
         return pd.DataFrame()
 
     parameter_names = tuple(experiment.parameter_grid)
-    configuration_records: list[dict[str, object]] = []
-
-    configuration_rows = scenario_table.groupby(
-        "configuration_id",
-        sort=True,
-    )
-
     expected_configurations = {
         configuration.configuration_id: configuration
         for configuration in experiment.iter_algorithm_configurations()
     }
 
-    for configuration_id, rows in configuration_rows:
+    configuration_records: list[dict[str, object]] = []
+
+    grouped = scenario_table.groupby(
+        ["problem", "configuration_id"],
+        sort=True,
+    )
+
+    for (problem_name, configuration_id), rows in grouped:
         configuration = expected_configurations.get(str(configuration_id))
         if configuration is None:
             raise SensitivityAnalysisError(
@@ -518,9 +582,10 @@ def _create_configuration_table(
         ranks = rows["scenario_rank"]
 
         record: dict[str, object] = {
+            "problem": problem_name,
             "configuration_id": configuration_id,
             "algorithm": configuration.name,
-            "scenario_count": len(rows),
+            "dimension_count": len(rows),
             "mean_normalized_gap": float(normalized_gaps.mean()),
             "std_normalized_gap": _safe_series_standard_deviation(normalized_gaps),
             "mean_seed_std_normalized_gap": float(
@@ -531,6 +596,10 @@ def _create_configuration_table(
             ),
             "mean_rank": float(ranks.mean()),
             "worst_normalized_gap": float(normalized_gaps.max()),
+            "mean_cpu_seconds": float(rows["mean_cpu_seconds"].mean()),
+            "mean_function_evaluations": float(
+                rows["mean_function_evaluations"].mean()
+            ),
         }
 
         for parameter_name in parameter_names:
@@ -541,115 +610,163 @@ def _create_configuration_table(
         configuration_records.append(record)
 
     columns = [
+        "problem",
         "configuration_id",
         "algorithm",
         *parameter_names,
         *[f"{name}__key" for name in parameter_names],
-        "scenario_count",
+        "dimension_count",
         "mean_normalized_gap",
         "std_normalized_gap",
         "mean_seed_std_normalized_gap",
         "max_seed_std_normalized_gap",
         "mean_rank",
         "worst_normalized_gap",
+        "mean_cpu_seconds",
+        "mean_function_evaluations",
     ]
 
     return (
-        pd.DataFrame.from_records(
-            configuration_records,
-            columns=columns,
-        )
+        pd.DataFrame.from_records(configuration_records, columns=columns)
         .sort_values(
-            ["mean_normalized_gap", "mean_rank", "configuration_id"],
+            ["problem", "mean_normalized_gap", "mean_rank", "configuration_id"],
             kind="stable",
         )
         .reset_index(drop=True)
     )
 
 
-def _create_parameter_table(
-    configuration_table: pd.DataFrame,
+def _create_problem_parameter_table(
+    problem_configuration_table: pd.DataFrame,
     experiment: ExperimentSpecification,
 ) -> pd.DataFrame:
-    if configuration_table.empty:
+    if problem_configuration_table.empty:
         return pd.DataFrame()
 
     records: list[dict[str, object]] = []
 
-    for parameter_name in experiment.parameter_grid:
-        parameter_key = f"{parameter_name}__key"
-        grouped = configuration_table.groupby(
-            parameter_key,
-            sort=False,
-        )
+    for problem, problem_rows in problem_configuration_table.groupby(
+        "problem", sort=False
+    ):
+        for parameter_name in experiment.parameter_grid:
+            parameter_key = f"{parameter_name}__key"
+            grouped = problem_rows.groupby(parameter_key, sort=False)
+            levels: list[dict[str, object]] = []
 
-        levels: list[dict[str, object]] = []
+            for value_key, rows in grouped:
+                first_value = rows[parameter_name].iloc[0]
+                mean_gap = float(rows["mean_normalized_gap"].mean())
+                std_gap = _safe_series_standard_deviation(rows["mean_normalized_gap"])
+                mean_seed_std_gap = float(rows["mean_seed_std_normalized_gap"].mean())
+                worst_seed_std_gap = float(rows["max_seed_std_normalized_gap"].max())
+                mean_rank = float(rows["mean_rank"].mean())
 
-        for value_key, rows in grouped:
-            first_value = rows[parameter_name].iloc[0]
-            mean_gap = float(rows["mean_normalized_gap"].mean())
-            std_gap = _safe_series_standard_deviation(rows["mean_normalized_gap"])
-            mean_seed_std_gap = float(rows["mean_seed_std_normalized_gap"].mean())
-            worst_seed_std_gap = float(rows["max_seed_std_normalized_gap"].max())
-            mean_rank = float(rows["mean_rank"].mean())
+                levels.append(
+                    {
+                        "problem": problem,
+                        "parameter": parameter_name,
+                        "parameter_value": first_value,
+                        "parameter_value_key": str(value_key),
+                        "configuration_count": len(rows),
+                        "mean_normalized_gap": mean_gap,
+                        "std_normalized_gap": std_gap,
+                        "mean_seed_std_normalized_gap": mean_seed_std_gap,
+                        "worst_seed_std_normalized_gap": worst_seed_std_gap,
+                        "mean_rank": mean_rank,
+                        "worst_configuration_gap": float(
+                            rows["worst_normalized_gap"].max()
+                        ),
+                        "mean_cpu_seconds": float(rows["mean_cpu_seconds"].mean()),
+                        "mean_function_evaluations": float(
+                            rows["mean_function_evaluations"].mean()
+                        ),
+                    }
+                )
 
-            levels.append(
-                {
-                    "parameter": parameter_name,
-                    "parameter_value": first_value,
-                    "parameter_value_key": str(value_key),
-                    "configuration_count": len(rows),
-                    "mean_normalized_gap": mean_gap,
-                    "std_normalized_gap": std_gap,
-                    "mean_seed_std_normalized_gap": mean_seed_std_gap,
-                    "worst_seed_std_normalized_gap": worst_seed_std_gap,
-                    "mean_rank": mean_rank,
-                    "worst_configuration_gap": float(
-                        rows["worst_normalized_gap"].max()
-                    ),
-                }
-            )
+            if not levels:
+                continue
 
-        if not levels:
-            continue
+            level_table = pd.DataFrame.from_records(levels)
+            mean_gaps = level_table["mean_normalized_gap"]
+            effect_range = float(mean_gaps.max() - mean_gaps.min())
+            level_ranks = mean_gaps.rank(method="average", ascending=True)
 
-        level_table = pd.DataFrame.from_records(levels)
-        mean_gaps = level_table["mean_normalized_gap"]
-        effect_range = float(mean_gaps.max() - mean_gaps.min())
-
-        for level in levels:
-            level["parameter_effect_range"] = effect_range
-            level["level_mean_rank"] = float(
-                mean_gaps.rank(method="average", ascending=True)
-                .loc[level_table["parameter_value_key"] == level["parameter_value_key"]]
-                .iloc[0]
-            )
-            records.append(level)
-
-    if not records:
-        return pd.DataFrame()
+            for level_index, level in enumerate(levels):
+                level["parameter_effect_range"] = effect_range
+                level["level_mean_rank"] = float(level_ranks.iloc[level_index])
+                records.append(level)
 
     return (
         pd.DataFrame.from_records(records)
         .sort_values(
-            ["parameter", "mean_normalized_gap", "parameter_value_key"],
+            ["problem", "parameter", "mean_normalized_gap", "parameter_value_key"],
             kind="stable",
         )
         .reset_index(drop=True)
+        if records
+        else pd.DataFrame()
     )
+
+
+def _select_problem_configurations(
+    problem_configuration_table: pd.DataFrame,
+    *,
+    performance_tolerance: float,
+) -> pd.DataFrame:
+    """Select one configuration per problem deterministically.
+
+    Selection priority:
+
+    1. lower mean normalized gap;
+    2. among configurations within ``performance_tolerance`` of the best mean,
+       lower worst normalized gap;
+    3. among remaining ties, lower mean CPU time;
+    4. finally, lower configuration ID for reproducibility.
+    """
+    if problem_configuration_table.empty:
+        return pd.DataFrame()
+
+    selected_rows: list[pd.Series] = []
+
+    for problem, rows in problem_configuration_table.groupby("problem", sort=True):
+        minimum_gap = float(rows["mean_normalized_gap"].min())
+        candidates = rows.loc[
+            rows["mean_normalized_gap"] <= minimum_gap + performance_tolerance
+        ].copy()
+
+        candidates = candidates.sort_values(
+            ["worst_normalized_gap", "mean_cpu_seconds", "configuration_id"],
+            kind="stable",
+        )
+        selected_rows.append(candidates.iloc[0])
+
+    selected = pd.DataFrame(selected_rows).reset_index(drop=True)
+    selected.insert(3, "selection_status", "selected")
+    return selected
+
+
+# ---------------------------------------------------------------------------
+# Small deterministic helpers
+# ---------------------------------------------------------------------------
+
+
+def _validate_problem_name(problem: str, expected_problems: tuple[str, ...]) -> None:
+    if problem not in expected_problems:
+        raise KeyError(
+            f"Problem {problem!r} is not part of the analyzed experiment. "
+            f"Expected one of: {', '.join(expected_problems)}."
+        )
 
 
 def _safe_standard_deviation(values: list[float]) -> float:
     if len(values) <= 1:
         return 0.0
-
     return float(pd.Series(values, dtype="float64").std(ddof=1))
 
 
 def _safe_series_standard_deviation(values: pd.Series) -> float:
     if len(values) <= 1:
         return 0.0
-
     return float(values.std(ddof=1))
 
 
@@ -690,7 +807,6 @@ def _format_run_validation_failure(
 ) -> str:
     messages = [issue.message for issue in issues]
     detail = " ".join(messages[:5])
-
     return f"Run {run_id!r} failed sensitivity validation: {detail}"
 
 
@@ -702,4 +818,5 @@ __all__ = [
     "analyze_sensitivity",
     "create_configuration_comparison_table",
     "create_parameter_effect_table",
+    "create_selected_configuration_table",
 ]

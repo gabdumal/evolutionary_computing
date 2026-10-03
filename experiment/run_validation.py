@@ -19,13 +19,15 @@ ARTIFACT_ROOT = DEFAULT_ARTIFACT_ROOT
 ALGORITHM_IMPORT_PATH = "niapy.algorithms.basic.CatSwarmOptimization"
 
 
-# Keep this grid deliberately small for the first validation campaign.
-# The Cartesian product below produces 9 configurations.
 HYPERPARAMETER_GRID = {
-    "population_size": (5, 10, 15, 30),
-    "mixture_ratio": (0.0, 0.05, 0.1, 0.2),
-    "max_velocity": (0.25, 0.5, 0.75, 1.0),
-    "srd": (0.4, 0.5, 0.6, 0.8, 1.0),
+    "c1": (1.05, 2.05, 3.05),
+    "cdc": (0.65, 0.85, 1.0),
+    "max_velocity": (0.9, 1.9, 2.9),
+    "mixture_ratio": (0.05, 0.1, 0.2),
+    "population_size": (15, 30, 60),
+    "smp": (2, 3, 4),
+    "spc": (True, False),
+    "srd": (0.1, 0.2, 0.4),
 }
 
 PROBLEMS = DEFAULT_PROBLEMS
