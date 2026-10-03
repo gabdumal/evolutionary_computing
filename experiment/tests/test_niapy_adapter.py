@@ -93,3 +93,105 @@ def test_niapy_adapter_contract(monkeypatch):
     assert result.objective.best_value == 0.0
     assert result.objective.best_solution == (0.0, 0.0, 0.0, 0.0)
     assert result.convergence == ConvergenceTrace((1,), (0.0,))
+
+
+def test_native_benchmark_class_detection(monkeypatch):
+    import optimization_experiments.algorithms.niapy as module
+
+    class FakeHappyCat(FakeProblem):
+        pass
+
+    class FakeRosenbrock(FakeProblem):
+        pass
+
+    class FakeSchwefel(FakeProblem):
+        pass
+
+    monkeypatch.setattr(
+        module,
+        "_load_native_problem_classes",
+        lambda: {
+            "happycat": FakeHappyCat,
+            "rosenbrock": FakeRosenbrock,
+            "schwefel": FakeSchwefel,
+        },
+    )
+
+    scenarios = (
+        BenchmarkScenario(
+            problem="HappyCat",
+            dimension=10,
+            objective="HappyCat",
+            lower_bound=-100.0,
+            upper_bound=100.0,
+        ),
+        BenchmarkScenario(
+            problem="Rosenbrock",
+            dimension=10,
+            objective="Rosenbrock",
+            lower_bound=-30.0,
+            upper_bound=30.0,
+        ),
+        BenchmarkScenario(
+            problem="Schwefel",
+            dimension=10,
+            objective="Schwefel",
+            lower_bound=-500.0,
+            upper_bound=500.0,
+        ),
+    )
+
+    classes = [module._native_problem_class(s) for s in scenarios]
+    assert classes == [FakeHappyCat, FakeRosenbrock, FakeSchwefel]
+
+    custom_bounds = BenchmarkScenario(
+        problem="HappyCat",
+        dimension=10,
+        objective="happycat",
+        lower_bound=-10.0,
+        upper_bound=10.0,
+    )
+    assert module._native_problem_class(custom_bounds) is None
+
+
+def test_create_task_passes_concrete_native_problem(monkeypatch):
+    import optimization_experiments.algorithms.niapy as module
+
+    class FakeHappyCat(FakeProblem):
+        pass
+
+    monkeypatch.setattr(
+        module,
+        "_load_native_problem_classes",
+        lambda: {
+            "happycat": FakeHappyCat,
+            "rosenbrock": FakeProblem,
+            "schwefel": FakeProblem,
+        },
+    )
+
+    class CapturingTask:
+        def __init__(self, **kwargs):
+            self.kwargs = kwargs
+
+    scenario = BenchmarkScenario(
+        problem="HappyCat",
+        dimension=10,
+        objective="HappyCat",
+        lower_bound=-100.0,
+        upper_bound=100.0,
+    )
+
+    task = module._create_task(
+        scenario,
+        CapturingTask,
+        FakeOptimizationType,
+        FakeProblem,
+        1000,
+    )
+
+    assert isinstance(task.kwargs["problem"], FakeHappyCat)
+    assert task.kwargs["problem"].dimension == 10
+    assert task.kwargs["problem"].lower == -100.0
+    assert task.kwargs["problem"].upper == 100.0
+    assert task.kwargs["max_evals"] == 1000

@@ -1,9 +1,10 @@
 from __future__ import annotations
 
 import argparse
+import json
 from pathlib import Path
 
-from .analysis import create_configuration_manifest, generate_cso_analysis
+from .analysis import create_configuration_manifest
 from .artifacts import ArtifactStore
 from .campaigns import run_campaign
 from .experiments.cso import create_cso_smoke_experiment
@@ -13,6 +14,8 @@ from .experiments.zoadamm import create_zoadamm_smoke_experiment
 
 def _format_duration(seconds: float) -> str:
     seconds = max(0.0, seconds)
+    if seconds < 60.0:
+        return f"{seconds:.2f}s"
     whole = int(seconds)
     days, remainder = divmod(whole, 86_400)
     hours, remainder = divmod(remainder, 3_600)
@@ -27,9 +30,21 @@ def main() -> None:
     subparsers = parser.add_subparsers(dest="command", required=True)
 
     for command in ("cso-smoke", "cso-grid", "zoadamm-smoke"):
-        smoke = subparsers.add_parser(command)
-        smoke.add_argument("--artifact-root", type=Path, default=Path("_artifacts"))
-        smoke.add_argument("--workers", type=int, default=None)
+        command_parser = subparsers.add_parser(command)
+        command_parser.add_argument("--artifact-root", type=Path, default=Path("_artifacts"))
+        command_parser.add_argument("--workers", type=int, default=None)
+        command_parser.add_argument("--start-method", choices=("fork", "forkserver", "spawn"), default="forkserver")
+        command_parser.add_argument("--no-analysis", action="store_true")
+        command_parser.add_argument(
+            "--durable-artifacts",
+            action="store_true",
+            help="fsync every artifact; safer against power loss but slower",
+        )
+        command_parser.add_argument(
+            "--compress-convergence",
+            action="store_true",
+            help="compress convergence arrays; saves disk space but costs CPU",
+        )
 
     analyze = subparsers.add_parser("cso-analyze")
     analyze.add_argument("--artifact-root", type=Path, default=Path("_artifacts"))
@@ -53,14 +68,11 @@ def main() -> None:
         experiment_path = experiment_root / "experiment.json"
         if not experiment_path.is_file():
             raise FileNotFoundError(f"Experiment artifact not found: {experiment_path}")
-        import json
         payload = json.loads(experiment_path.read_text(encoding="utf-8"))
-        # The canonical experiment specification is reconstructed by the store;
-        # analysis itself reads only completed run metadata.
+        from .artifacts.store import ArtifactPaths
         store = ArtifactStore.__new__(ArtifactStore)
         store.root = args.artifact_root
         store.experiment_root = experiment_root
-        from .artifacts.store import ArtifactPaths
         store.paths = ArtifactPaths(
             experiment=experiment_path,
             runs=experiment_root / "runs",
@@ -69,11 +81,16 @@ def main() -> None:
             analysis=experiment_root / "analysis",
         )
         records = store.load_run_records()
+        run_count = len(records)
+        output = store.paths.analysis
+        output.mkdir(parents=True, exist_ok=True)
         from .analysis.runs import create_run_table_from_records
-        run_table = create_run_table_from_records(records)
-        artifacts = generate_cso_analysis(run_table, store.paths.analysis)
-        for name, frame in artifacts.items():
-            print(f"{name}: {len(frame):,} rows", flush=True)
+        frame = create_run_table_from_records(records)
+        frame.to_csv(output / "run_results.csv", index=False)
+        frame.to_parquet(output / "run_results.parquet", index=False)
+        print(f"run_results: {run_count:,} rows", flush=True)
+        print(f"output: {output}", flush=True)
+        _ = payload
         return
 
     if args.command == "cso-smoke":
@@ -85,10 +102,23 @@ def main() -> None:
     else:
         raise AssertionError(f"Unhandled command: {args.command!r}")
 
+    print(
+        f"Prepared '{experiment.name}': {experiment.run_count:,} runs "
+        f"| {len(experiment.configurations):,} configurations "
+        f"| {len(experiment.scenarios)} scenarios "
+        f"| {len(experiment.seeds.seeds)} seeds "
+        f"| {experiment.budget.max_function_evaluations:,} FEs/run",
+        flush=True,
+    )
+
     report = run_campaign(
         experiment,
         artifact_root=args.artifact_root,
         max_workers=args.workers,
+        start_method=args.start_method,
+        generate_analysis=not args.no_analysis,
+        durable_artifacts=args.durable_artifacts,
+        compress_convergence=args.compress_convergence,
     )
     execution = report.execution
     print(
@@ -100,6 +130,7 @@ def main() -> None:
         f"elapsed={_format_duration(execution.wall_seconds)} | "
         f"rate={execution.runs_per_second:.2f} runs/s | "
         f"CPU={_format_duration(execution.cpu_seconds)} | "
+        f"persist={_format_duration(execution.persistence_seconds)} | "
         f"valid={report.validation.valid}",
         flush=True,
     )

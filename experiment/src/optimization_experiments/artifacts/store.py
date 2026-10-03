@@ -49,10 +49,20 @@ class ArtifactPaths:
 class ArtifactStore:
     """Filesystem-backed, resumable storage bound to one experiment."""
 
-    def __init__(self, root: str | Path, experiment: ExperimentSpecification):
+    def __init__(
+        self,
+        root: str | Path,
+        experiment: ExperimentSpecification,
+        *,
+        durable: bool = False,
+        compress_convergence: bool = False,
+    ):
         self.root = Path(root)
         self.experiment = experiment
-        self.experiment_root = self.root / experiment_id(experiment)
+        self._experiment_identifier = experiment_id(experiment)
+        self.durable = durable
+        self.compress_convergence = compress_convergence
+        self.experiment_root = self.root / self._experiment_identifier
         self.paths = ArtifactPaths(
             experiment=self.experiment_root / "experiment.json",
             runs=self.experiment_root / "runs",
@@ -60,6 +70,43 @@ class ArtifactStore:
             failures=self.experiment_root / "failures",
             analysis=self.experiment_root / "analysis",
         )
+
+    @classmethod
+    def for_worker(
+        cls,
+        root: str | Path,
+        experiment_identifier: str,
+        *,
+        durable: bool = False,
+        compress_convergence: bool = False,
+    ) -> "ArtifactStore":
+        """Create a store context for worker-side persistence.
+
+        Workers already receive a concrete RunSpecification containing the
+        experiment ID, so sending the full experiment (thousands of
+        configurations for the CSO grid) with every task would waste IPC.
+        This context deliberately exposes only the paths and experiment ID
+        required to write an authoritative run/failure artifact.
+        """
+        store = cls.__new__(cls)
+        store.root = Path(root)
+        store.experiment = None
+        store._experiment_identifier = experiment_identifier
+        store.durable = durable
+        store.compress_convergence = compress_convergence
+        store.experiment_root = store.root / experiment_identifier
+        store.paths = ArtifactPaths(
+            experiment=store.experiment_root / "experiment.json",
+            runs=store.experiment_root / "runs",
+            convergence=store.experiment_root / "convergence",
+            failures=store.experiment_root / "failures",
+            analysis=store.experiment_root / "analysis",
+        )
+        return store
+
+    @property
+    def experiment_identifier(self) -> str:
+        return self._experiment_identifier
 
     def initialize(self) -> None:
         for directory in (
@@ -123,6 +170,8 @@ class ArtifactStore:
                 result.convergence.best_values,
                 dtype=np.float64,
             ),
+            compress=self.compress_convergence,
+            durable=self.durable,
         )
 
         payload = {
@@ -144,7 +193,7 @@ class ArtifactStore:
             },
             "saved_at_utc": datetime.now(timezone.utc).isoformat(),
         }
-        _atomic_json(self.run_path(identifier), payload)
+        _atomic_json(self.run_path(identifier), payload, durable=self.durable)
 
     def save_failure(
         self,
@@ -162,7 +211,7 @@ class ArtifactStore:
             },
             "saved_at_utc": datetime.now(timezone.utc).isoformat(),
         }
-        _atomic_json(self.failure_path(run_id(specification)), payload)
+        _atomic_json(self.failure_path(run_id(specification)), payload, durable=self.durable)
 
     def load_run(self, identifier: str) -> RunResult:
         payload = json.loads(
@@ -269,7 +318,7 @@ class ArtifactStore:
         self,
         specification: RunSpecification,
     ) -> None:
-        if specification.experiment_id != experiment_id(self.experiment):
+        if specification.experiment_id != self._experiment_identifier:
             raise ValueError("Run belongs to a different experiment.")
 
     def _validate_result_experiment(self, result: RunResult) -> None:
@@ -336,7 +385,7 @@ def _resolve_type(path: str) -> type:
     raise ValueError(f"Unsupported parameter type in artifact: {path!r}.")
 
 
-def _atomic_json(path: Path, payload: Any) -> None:
+def _atomic_json(path: Path, payload: Any, *, durable: bool = False) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     temporary: Path | None = None
     try:
@@ -358,7 +407,8 @@ def _atomic_json(path: Path, payload: Any) -> None:
                 allow_nan=False,
             )
             handle.flush()
-            os.fsync(handle.fileno())
+            if durable:
+                os.fsync(handle.fileno())
         os.replace(temporary, path)
     finally:
         if temporary is not None:
@@ -370,6 +420,8 @@ def _atomic_npz(
     *,
     evaluations: np.ndarray,
     values: np.ndarray,
+    compress: bool = False,
+    durable: bool = False,
 ) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     temporary: Path | None = None
@@ -382,13 +434,21 @@ def _atomic_npz(
             delete=False,
         ) as handle:
             temporary = Path(handle.name)
-            np.savez_compressed(
-                handle,
-                evaluations=evaluations,
-                values=values,
-            )
+            if compress:
+                np.savez_compressed(
+                    handle,
+                    evaluations=evaluations,
+                    values=values,
+                )
+            else:
+                np.savez(
+                    handle,
+                    evaluations=evaluations,
+                    values=values,
+                )
             handle.flush()
-            os.fsync(handle.fileno())
+            if durable:
+                os.fsync(handle.fileno())
         os.replace(temporary, path)
     finally:
         if temporary is not None:

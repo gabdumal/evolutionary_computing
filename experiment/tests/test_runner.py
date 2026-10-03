@@ -64,6 +64,7 @@ def test_fake_runner_round_trip(tmp_path: Path):
     assert report.runs_per_second > 0.0
     assert validation.valid
     assert len(store.completed_run_ids()) == 2
+    assert report.persistence_seconds >= 0.0
 
     try:
         import pyarrow  # noqa: F401
@@ -71,3 +72,55 @@ def test_fake_runner_round_trip(tmp_path: Path):
         return
 
     assert store.materialize_index().is_file()
+
+
+def test_worker_side_persistence_with_multiple_workers(tmp_path: Path):
+    algorithm = cso_algorithm_specification()
+    fake_algorithm = type(algorithm)(
+        name=algorithm.name,
+        implementation="fake",
+        parameter_schema=algorithm.parameter_schema,
+        fixed_parameters=dict(algorithm.fixed_parameters),
+    )
+    configuration = AlgorithmConfiguration(
+        algorithm=fake_algorithm,
+        parameters=dict(fake_algorithm.fixed_parameters),
+    )
+
+    experiment = ExperimentSpecification(
+        name="fake-multiworker",
+        algorithm=fake_algorithm,
+        scenarios=(
+            BenchmarkScenario(
+                problem="Sphere",
+                dimension=3,
+                objective="sphere",
+                lower_bound=-5,
+                upper_bound=5,
+            ),
+        ),
+        configurations=(configuration,),
+        seeds=SeedPlan(tuple(range(8))),
+        budget=EvaluationBudget(10),
+    )
+
+    registry = default_registry()
+    registry.register(
+        "fake",
+        "optimization_experiments.algorithms.testing.create_fake_adapter",
+    )
+
+    store = ArtifactStore(tmp_path, experiment)
+    report = ExperimentRunner(
+        store,
+        registry,
+        max_workers=2,
+        start_method="forkserver",
+        progress_interval_seconds=3600,
+        progress_interval_fraction=1.0,
+    ).run(experiment)
+
+    assert report.completed_run_count == 8
+    assert report.failed_run_count == 0
+    assert report.persistence_seconds >= 0.0
+    assert len(store.completed_run_ids()) == 8

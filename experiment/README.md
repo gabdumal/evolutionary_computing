@@ -1,196 +1,83 @@
-# optimization-experiments
+# Optimization Experiments API
 
-Reusable infrastructure for reproducible stochastic and zero-order optimization
-experiments.
+Reusable experiment infrastructure for benchmark-based optimization studies.
 
-## Architecture
+## Current CSO campaign
 
-```text
-ExperimentSpecification
-        │
-        ▼
-   ExperimentRunner
-        │
-        ▼
- AlgorithmRegistry
-        │
-        ├── CSO → NiaPyAlgorithmAdapter
-        ├── ZO-AdaMM → NumPy adapter
-        └── Hybrid → future adapter
-        │
-        ▼
-     RunResult
-        │
-        ├── best objective / solution
-        ├── function evaluations
-        ├── iterations
-        ├── CPU seconds
-        ├── wall-clock seconds
-        └── convergence vs function evaluations
-        │
-        ▼
- ArtifactStore
-        │
-        ├── experiment.json
-        ├── runs/*.json
-        ├── convergence/*.npz
-        ├── failures/*.json
-        └── analysis/*.parquet / *.csv
-```
+The complete CSO campaign uses:
 
-## API contracts
+- 4,374 full-factorial configurations;
+- 6 benchmark scenarios (HappyCat, Rosenbrock, Schwefel at dimensions 10 and 100);
+- 3 seeds (27, 32, 59);
+- 10,000 function evaluations per run;
+- 78,732 independent runs.
 
-The runner does not know how an optimization algorithm works. An
-`AlgorithmAdapter` receives one immutable `RunSpecification` and returns one
-`RunResult`.
+The CSO adapter uses NiaPy's native implementations for the three standard
+benchmarks whenever the scenario exactly matches their documented default
+semantics. This keeps the hot objective-evaluation path out of the project's
+Python dispatcher.
 
-The registry stores **import paths**, not arbitrary closures or lambda
-functions. This makes adapter construction safe across Python worker
-processes.
+## Execution performance
 
-Function-evaluation budget is explicit and is the primary cross-algorithm
-resource metric.
+Artifact persistence is optimized for long-running campaigns by default:
 
-## CSO
+- atomic file replacement is retained;
+- per-run `fsync` is disabled by default;
+- convergence arrays are stored as uncompressed `.npz` by default;
+- convergence checksums are retained;
+- only a bounded number of worker futures is kept in flight.
 
-The CSO adapter is a thin wrapper over NiaPy's
-`CatSwarmOptimization(population_size, mixture_ratio, c1, smp, spc, cdc, srd,
-max_velocity, ...)`.
+For maximum filesystem durability, use `--durable-artifacts`.
+For smaller convergence artifacts at the cost of additional CPU, use
+`--compress-convergence`.
 
-The project targets NiaPy 2.7.1+ and Python 3.14+.
+The console reports elapsed time, run throughput, ETA, accumulated CPU time,
+accumulated algorithm wall time, average persistence time, active workers,
+and the most recently completed run.
 
-## Benchmarks
+## Commands
 
-The default scenarios are:
-
-- HappyCat, D=10 and D=100, [-100, 100]
-- Rosenbrock, D=10 and D=100, [-30, 30]
-- Schwefel, D=10 and D=100, [-500, 500]
-
-These domains match the NiaPy benchmark definitions used as the baseline.
-
-## Smoke campaign
-
-Run:
+Generate the deterministic CSO configuration manifest:
 
 ```bash
-python -m optimization_experiments.cli cso-smoke --workers 1
+python -m optimization_experiments.cli cso-grid-manifest \
+  --output cso_configuration_grid.csv
 ```
 
-or after installation:
+Run the complete three-seed CSO campaign:
 
 ```bash
-opt-experiments cso-smoke --workers 1
+python -m optimization_experiments.cli cso-grid --workers 8
 ```
 
-The smoke campaign contains one CSO configuration, 6 benchmark scenarios,
-3 seeds and a 1,000-function-evaluation budget, for 18 independent runs.
-
-## Analysis
-
-The canonical run table contains one row per run with:
-
-```text
-run_id
-experiment_id
-algorithm_id
-algorithm
-configuration_id
-scenario_id
-objective_function
-problem
-dimension
-seed
-<resolved algorithm parameters>
-calculated_value
-function_evaluations
-iterations
-cpu_seconds
-wall_seconds
-```
-
-Statistics aggregate by configuration/scenario and provide:
-
-```text
-min
-max
-mean
-std
-```
-
-for objective value, function evaluations, iterations, CPU time and per-run
-wall-clock time.
-
-## Timing and execution logging
-
-Each run records two distinct timing metrics:
-
-- `cpu_seconds`: CPU time measured inside the worker with `time.process_time()`.
-- `wall_seconds`: elapsed time for the run measured with `time.perf_counter()`.
-
-The runner uses wall-clock time for campaign progress, throughput and ETA.
-Progress is emitted at configurable fraction/time thresholds rather than for
-every completed run, keeping console I/O small for large campaigns. Each
-progress line reports global progress, session progress, elapsed time, runs/s,
-ETA, cumulative CPU time, failures and the most recently completed run's
-wall/CPU time and function-evaluation count.
-
-## Environment provenance
-
-`experiment.json` records Python, platform, machine, NumPy, pandas, pyarrow,
-NiaPy and the current Git commit when available. Environment metadata does not
-enter the scientific experiment identity.
-
-## Next step
-
-After the CSO smoke campaign is verified locally with NiaPy 2.7.1+, the next
-adapter can implement ZO-AdaMM without modifying the execution, artifact,
-validation or statistical APIs.
-
-## ZO-AdaMM
-
-The project includes a NumPy implementation of **ZO-AdaMM** based on Algorithm 1 of Chen et al., *ZO-AdaMM: Zeroth-Order Adaptive Momentum Method for Black-Box Optimization* (NeurIPS 2019).
-
-The implementation exposes `learning_rate`, `beta1`, `beta2`, `mu`, `q`, `epsilon`, and `decay_learning_rate` through the same `AlgorithmSpecification` API used by CSO. The paper's zeroth-order estimator uses a forward difference along a random unit direction; the implementation supports `q` independent directions and averages their estimates. The reference authors' experimental script explicitly sets `q=10`, `mu=0.001`, `lr=0.001`, and enables learning-rate decay. The `beta1` and `beta2` values in this package are explicit configuration defaults rather than claims about the paper's reference-script values.
-
-For the benchmark box constraints, the diagonal Mahalanobis projection in Algorithm 1 reduces to coordinate-wise clipping, so no generic constrained optimizer is required.
-
-Run the smoke campaign with:
+For Linux, the process start method can be selected explicitly:
 
 ```bash
-python -m optimization_experiments.cli zoadamm-smoke --workers 1
+python -m optimization_experiments.cli cso-grid \
+  --workers 8 \
+  --start-method fork
 ```
 
-## CSO full analysis campaign
+The default remains `forkserver` for conservative behavior. Existing completed
+runs from an experiment are resumed only when the experiment identity matches.
+The optimized CSO campaign includes a backend marker in its identity so runs
+from the previous generic-objective implementation are not mixed into the new
+campaign.
 
-The new API defines a fresh, balanced full-factorial CSO grid:
 
-- population_size: 20, 30, 60
-- mixture_ratio: 0.05, 0.10, 0.20
-- c1: 1.00, 2.05, 3.00
-- smp: 2, 3, 5
-- spc: False, True
-- cdc: 0.25, 0.50, 0.85
-- srd: 0.05, 0.20, 0.50
-- max_velocity: 0.5, 1.9, 5.0
+## Execution performance
 
-This produces 4,374 configurations, six benchmark scenarios (HappyCat,
-Rosenbrock and Schwefel at dimensions 10 and 100), and three seeds (27, 32,
-59), for 78,732 independent runs. The budget is 10,000 objective evaluations
-per run.
+The process pool uses bounded scheduling and persists authoritative run/convergence artifacts inside the worker that executed the run. This avoids serializing the full convergence trace back to the parent process and avoids making the parent a single-file-system writer bottleneck. `--durable-artifacts` enables fsync, while convergence compression remains opt-in with `--compress-convergence`.
 
-Run it with:
+For the three native NiaPy benchmarks used by the CSO campaign, the adapter uses NiaPy's native benchmark implementations in the objective-evaluation hot path and falls back to the project's generic objective dispatcher only for scenarios whose semantics do not exactly match a native benchmark.
+
+
+## Recommended full CSO execution
+
+For the complete three-seed campaign, use:
 
 ```bash
-python -m optimization_experiments.cli cso-grid --workers N
+python -m optimization_experiments.cli cso-grid --workers 8
 ```
 
-After completion, derive the CSO analysis tables with:
-
-```bash
-python -m optimization_experiments.cli cso-analyze --experiment-id EXPERIMENT_ID
-```
-
-The analysis creates `configuration_results.csv`, `parameter_results.csv`,
-`parameter_effect_summary.csv`, and `selected_configurations.csv` in the
-experiment's `analysis/` directory.
+The default execution is non-durable for throughput. Use `--durable-artifacts` only when fsync-on-each-artifact is required. Use `--compress-convergence` only when reduced storage size is worth the additional CPU cost.

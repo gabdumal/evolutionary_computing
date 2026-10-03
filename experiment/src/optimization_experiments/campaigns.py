@@ -4,7 +4,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from .algorithms import AlgorithmRegistry, default_registry
-from .analysis import generate_result_artifacts
+from .analysis import analyze_cso, write_cso_analysis_artifacts
 from .artifacts import ArtifactStore
 from .core.models import ExperimentSpecification
 from .execution import ExecutionReport, ExperimentRunner
@@ -26,8 +26,15 @@ def run_campaign(
     start_method: str = "forkserver",
     validate: bool = True,
     generate_analysis: bool = True,
+    durable_artifacts: bool = False,
+    compress_convergence: bool = False,
 ) -> CampaignReport:
-    store = ArtifactStore(artifact_root, experiment)
+    store = ArtifactStore(
+        artifact_root,
+        experiment,
+        durable=durable_artifacts,
+        compress_convergence=compress_convergence,
+    )
     runner = ExperimentRunner(
         store,
         registry or default_registry(),
@@ -35,10 +42,15 @@ def run_campaign(
         start_method=start_method,
     )
     execution = runner.run(experiment)
-
     validation = validate_experiment(experiment, store)
+
     if validation.valid and generate_analysis:
-        generate_result_artifacts(experiment, store)
+        if experiment.name.startswith("cso-grid"):
+            analysis = analyze_cso(experiment, store)
+            write_cso_analysis_artifacts(analysis, store.paths.analysis)
+        else:
+            from .analysis import generate_result_artifacts
+            generate_result_artifacts(experiment, store)
 
     if validate and not validation.valid:
         raise RuntimeError(
