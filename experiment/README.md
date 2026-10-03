@@ -150,3 +150,37 @@ Run the smoke campaign with:
 ```bash
 python -m optimization_experiments.cli zoadamm-smoke --workers 1
 ```
+
+## CSO full analysis campaign
+
+The new API defines a fresh, balanced full-factorial CSO grid:
+
+- population_size: 20, 30, 60
+- mixture_ratio: 0.05, 0.10, 0.20
+- c1: 1.00, 2.05, 3.00
+- smp: 2, 3, 5
+- spc: False, True
+- cdc: 0.25, 0.50, 0.85
+- srd: 0.05, 0.20, 0.50
+- max_velocity: 0.5, 1.9, 5.0
+
+This produces 4,374 configurations, six benchmark scenarios (HappyCat,
+Rosenbrock and Schwefel at dimensions 10 and 100), and three seeds (27, 32,
+59), for 78,732 independent runs. The budget is 10,000 objective evaluations
+per run.
+
+Run it with:
+
+```bash
+python -m optimization_experiments.cli cso-grid --workers N
+```
+
+After completion, derive the CSO analysis tables with:
+
+```bash
+python -m optimization_experiments.cli cso-analyze --experiment-id EXPERIMENT_ID
+```
+
+The analysis creates `configuration_results.csv`, `parameter_results.csv`,
+`parameter_effect_summary.csv`, and `selected_configurations.csv` in the
+experiment's `analysis/` directory.

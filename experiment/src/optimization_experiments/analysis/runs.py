@@ -76,6 +76,79 @@ def create_run_table(results: Sequence[RunResult]) -> pd.DataFrame:
     return pd.DataFrame.from_records(rows, columns=columns)
 
 
+
+def create_run_table_from_records(records: Sequence[dict[str, Any]]) -> pd.DataFrame:
+    """Create the canonical run table without loading convergence arrays."""
+    if not records:
+        return pd.DataFrame()
+
+    parameter_names = tuple(sorted({
+        parameter
+        for record in records
+        for parameter in record["run"]["algorithm"]["parameters"]
+    }))
+
+    rows: list[dict[str, Any]] = []
+    for record in records:
+        run = record["run"]
+        configuration = run["algorithm"]
+        algorithm = configuration["algorithm"]
+        scenario = run["scenario"]
+        metrics = record["metrics"]
+        configuration_id = _configuration_id_from_record(configuration)
+        scenario_id = _scenario_id_from_record(scenario)
+        algorithm_id = _algorithm_id_from_record(algorithm)
+        run_id_value = _run_id_from_record(run)
+
+        row: dict[str, Any] = {
+            "run_id": run_id_value,
+            "experiment_id": run["experiment_id"],
+            "algorithm_id": algorithm_id,
+            "algorithm": algorithm["name"],
+            "configuration_id": configuration_id,
+            "scenario_id": scenario_id,
+            "objective_function": scenario["objective"],
+            "problem": scenario["problem"],
+            "dimension": int(scenario["dimension"]),
+            "seed": int(run["seed"]),
+            "calculated_value": float(metrics["best_value"]),
+            "function_evaluations": int(metrics["function_evaluations"]),
+            "iterations": int(metrics["iterations"]),
+            "cpu_seconds": float(metrics["cpu_seconds"]),
+        }
+        row.update({parameter: configuration["parameters"].get(parameter) for parameter in parameter_names})
+        rows.append(row)
+
+    columns = [
+        "run_id", "experiment_id", "algorithm_id", "algorithm", "configuration_id",
+        "scenario_id", "objective_function", "problem", "dimension", "seed",
+        *parameter_names, *ANALYSIS_METRICS,
+    ]
+    return pd.DataFrame.from_records(rows, columns=columns)
+
+
+def _digest_record(value: Any, prefix: str) -> str:
+    import hashlib
+    import json
+    payload = json.dumps(value, sort_keys=True, separators=(",", ":"), ensure_ascii=True).encode("utf-8")
+    return f"{prefix}_{hashlib.sha256(payload).hexdigest()[:16]}"
+
+
+def _algorithm_id_from_record(algorithm: dict[str, Any]) -> str:
+    return _digest_record(algorithm, "alg")
+
+
+def _configuration_id_from_record(configuration: dict[str, Any]) -> str:
+    return _digest_record(configuration, "cfg")
+
+
+def _scenario_id_from_record(scenario: dict[str, Any]) -> str:
+    return _digest_record(scenario, "scn")
+
+
+def _run_id_from_record(run: dict[str, Any]) -> str:
+    return _digest_record(run, "run")
+
 def create_run_statistics_table(
     run_table: pd.DataFrame,
     *,
@@ -127,8 +200,8 @@ def generate_result_artifacts(
     experiment: ExperimentSpecification,
     store,
 ) -> tuple[pd.DataFrame, pd.DataFrame]:
-    results = tuple(store.iter_results())
-    run_table = create_run_table(results)
+    records = store.load_run_records()
+    run_table = create_run_table_from_records(records)
     statistics = create_run_statistics_table(run_table)
 
     output = store.paths.analysis
@@ -157,6 +230,7 @@ __all__ = [
     "ANALYSIS_METRICS",
     "RunDataset",
     "aggregate_runs",
+    "create_run_table_from_records",
     "create_run_table",
     "create_run_statistics_table",
     "generate_result_artifacts",
