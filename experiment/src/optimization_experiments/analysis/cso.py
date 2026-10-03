@@ -7,7 +7,7 @@ from typing import Any
 
 import pandas as pd
 
-from ..core.ids import configuration_id, run_id, scenario_id
+from ..core.ids import configuration_id, experiment_id, run_id, scenario_id
 from ..core.models import ExperimentSpecification, RunResult
 
 DEFAULT_PERFORMANCE_TOLERANCE = 1e-12
@@ -273,7 +273,7 @@ def _parameter_dimension_groups(cso: CSOAnalysis):
     )
     for parameter in parameter_names:
         yield from [
-            (problem, dimension, parameter, group)
+            ((problem, dimension, parameter), group)
             for (problem, dimension), scenario_group in merged.groupby(["problem", "dimension"], sort=False)
             for group in [scenario_group[[parameter, "normalized_gap"]]]
         ]
@@ -378,6 +378,7 @@ def _create_cso_run_table_from_records(records: tuple[dict[str, Any], ...]) -> p
         "run_id", "experiment_id", "configuration_id", "scenario_id", "algorithm",
         "problem", "objective_function", "dimension", "seed", *parameter_names,
         "calculated_value", "function_evaluations", "iterations", "cpu_seconds",
+        "wall_seconds",
     ])
 
 
@@ -416,7 +417,7 @@ def analyze_cso(
     problem_configuration = create_problem_configuration_table(scenario_table, experiment)
     problem_parameter = create_problem_parameter_table(problem_configuration, experiment)
     base = CSOAnalysis(
-        experiment_id=experiment.experiment_id,
+        experiment_id=experiment_id(experiment),
         parameter_names=tuple(sorted({p for c in experiment.configurations for p in c.parameters})),
         problems=tuple(problem for problem in PRESENTATION_PROBLEM_ORDER if problem in run_table["problem"].unique()),
         run_table=run_table,
