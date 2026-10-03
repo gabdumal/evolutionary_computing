@@ -1,0 +1,27 @@
+[build-system]
+requires = ["hatchling>=1.27"]
+build-backend = "hatchling.build"
+
+[project]
+name = "optimization-experiments"
+version = "0.1.0"
+description = "Reusable experiment infrastructure for stochastic and zero-order optimization algorithms."
+requires-python = ">=3.14"
+dependencies = ["numpy>=2.3", "pandas>=2.3", "pyarrow>=20.0"]
+
+[project.optional-dependencies]
+dev = ["pytest>=8.4", "ruff>=0.13", "mypy>=1.18"]
+
+[project.scripts]
+opt-experiments = "optimization_experiments.cli:main"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/optimization_experiments"]
+
+[tool.ruff]
+target-version = "py314"
+line-length = 100
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-ra"
