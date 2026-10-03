@@ -108,6 +108,8 @@
     key: "seed",
     short: foreign_text[seed],
     plural: foreign_text[seeds],
+    short_capitalized: foreign_text[Seed],
+    plural_capitalized: foreign_text[Seeds],
   ),
   (
     key: "fold",

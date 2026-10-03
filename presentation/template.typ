@@ -56,5 +56,12 @@
     ),
   )
 
+  set table(
+    inset: leading / 3,
+    align: (x, _) => if x == 0 { left } else { right },
+  )
+
+  set grid(gutter: small_leading)
+
   it
 }
