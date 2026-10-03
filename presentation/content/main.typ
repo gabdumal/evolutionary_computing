@@ -90,3 +90,62 @@ Atualiza a #stress[posição] $x$ de um gato $k$ em todas as dimensões $d$ de a
 - #text(fill: theme_color)[$x_("best",d)$] é a posição do gato #strong[melhor avaliado] até então.
 
 Caminha na direção da #stress[melhor solução].
+
+#pagebreak()
+
+#title_slide("Funções de otimização")
+
+== Rosenbrock
+
+#grid(
+  columns: 2,
+  [
+    #stress[Vale] de busca #strong[estreito] e curvo, que se estende de forma não-linear #footnote[
+      Imagem: #link("https://commons.wikimedia.org/wiki/File%3ARosenbrock%27s_function_in_3D.pdf")
+    ].
+
+    - Avalia a capacidade de #strong[refinamento] e exploração #strong[direcionada] em regiões estreitas do espaço de busca.
+  ],
+  [
+    #image("../assets/images/rosenbrock.jpg")
+
+  ],
+)
+
+#pagebreak()
+
+== Schwefel
+
+#grid(
+  columns: 2,
+  [
+    #stress[Multimodal], com diversos picos e vales (ótimos locais) #footnote[
+      Imagem: #link("https://infinity77.net/global_optimization/test_functions_nd_S.html")
+    ].
+
+    - Avalia a capacidade de #strong[exploração global] e de evitar a #strong[convergência] prematura para um ótimo local.
+  ],
+  [
+    #image("../assets/images/schwefel.png")
+
+  ],
+)
+
+#pagebreak()
+
+== Happy Cat
+
+#grid(
+  columns: 2,
+  [
+    #stress[Não separável] e não linear, com região ótima relativamente plana #footnote[
+      Imagem: #link("https://infinity77.net/go_2021/scipy_test_functions_nd_H.html")
+    ].
+
+    - Avalia a capacidade de lidar com #strong[interação entre variáveis] e com uma região de ótimo menos pronunciada.
+  ],
+  [
+    #image("../assets/images/happy_cat.png")
+
+  ],
+)
