@@ -2,15 +2,18 @@ from __future__ import annotations
 
 import argparse
 import json
+
+import pandas as pd
 from pathlib import Path
 
-from .analysis import create_configuration_manifest
+from .analysis import create_configuration_manifest, analyze_algorithm_comparison, write_algorithm_comparison_artifacts
 from .artifacts import ArtifactStore
 from .campaigns import run_campaign
 from .experiments.cso import create_cso_smoke_experiment
 from .experiments.cso_campaign import create_cso_grid_experiment
 from .experiments.zoadamm import create_zoadamm_smoke_experiment
 from .experiments.zoadamm_campaign import create_zoadamm_grid_experiment
+from .analysis.runs import create_run_table_from_records
 
 
 def _format_duration(seconds: float) -> str:
@@ -52,11 +55,30 @@ def main() -> None:
         analyze.add_argument("--artifact-root", type=Path, default=Path("_artifacts"))
         analyze.add_argument("--experiment-id", required=True)
 
+    compare = subparsers.add_parser("compare")
+    compare.add_argument("--artifact-root", type=Path, default=Path("_artifacts"))
+    compare.add_argument("--cso-experiment-id", required=True)
+    compare.add_argument("--zoadamm-experiment-id", required=True)
+    compare.add_argument("--output-dir", type=Path, default=None)
+
     for command in ("cso-grid-manifest", "zoadamm-grid-manifest"):
         manifest = subparsers.add_parser(command)
     manifest.add_argument("--output", type=Path, default=Path("cso_configuration_grid.csv"))
 
     args = parser.parse_args()
+
+    if args.command == "compare":
+        from .artifacts import ArtifactStore
+
+        cso_store = ArtifactStore.for_existing(args.artifact_root, args.cso_experiment_id)
+        zoadamm_store = ArtifactStore.for_existing(args.artifact_root, args.zoadamm_experiment_id)
+        cso_run_table = pd.read_parquet(cso_store.paths.analysis / "run_results.parquet") if (cso_store.paths.analysis / "run_results.parquet").is_file() else create_run_table_from_records(cso_store.load_run_records())
+        zoadamm_run_table = pd.read_parquet(zoadamm_store.paths.analysis / "run_results.parquet") if (zoadamm_store.paths.analysis / "run_results.parquet").is_file() else create_run_table_from_records(zoadamm_store.load_run_records())
+        comparison = analyze_algorithm_comparison(cso_run_table, zoadamm_run_table)
+        output = args.output_dir or (args.artifact_root / "comparison")
+        write_algorithm_comparison_artifacts(comparison, output)
+        print(f"comparison completed: {output}", flush=True)
+        return
 
     if args.command in {"cso-grid-manifest", "zoadamm-grid-manifest"}:
         experiment = (

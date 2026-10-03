@@ -121,3 +121,16 @@ The campaign analysis writes per-run results, three-seed scenario statistics,
 problem-level configuration summaries, parameter-level effects, dimension-specific
 parameter effects, and both problem-level and problem×dimension selected
 configurations.
+
+## Algorithm comparison
+
+After completing the CSO and ZO-AdaMM campaigns, generate the final comparison artifacts with:
+
+```bash
+python -m optimization_experiments.cli compare \
+  --artifact-root _artifacts \
+  --cso-experiment-id <CSO_EXPERIMENT_ID> \
+  --zoadamm-experiment-id <ZOADAMM_EXPERIMENT_ID>
+```
+
+The command writes `comparison/algorithm_comparison_results.csv` with one row per selected algorithm/configuration/problem/dimension, `algorithm_comparison_table.csv` with presentation-ready `mean ± std` fields, and `algorithm_comparison_wide.csv` with one row per problem×dimension and one metric block per algorithm. Selection is performed independently for each algorithm and problem×dimension using minimum mean objective value across the three seeds; ties within the configured tolerance use objective standard deviation, mean wall time, and configuration ID.

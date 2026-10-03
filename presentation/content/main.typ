@@ -297,32 +297,83 @@ Caminha na direção da #stress[melhor solução].
 #align(center + horizon)[
   #set text(size: 20pt)
   #table(
-    columns: (auto, auto, 1fr, auto, auto),
+    columns: (auto, auto, auto, 1fr, auto, auto),
 
-    table.header(strong[Algoritmo], strong[Di.], strong[Valor], strong[Iterações], strong[Tempo (s)]),
+    table.header(strong[A], strong[Função], strong[Di.], strong[Valor], strong[Iter.], strong[Tempo (s)]),
+
+    table.cell(rowspan: 6)[#rotate(-90deg, reflow: true)[CSO]],
 
     table.cell(rowspan: 2)[Rosenbrock],
     [10],
-    [value #text(fill: gray)[± std]],
-    [0],
-    [value #text(fill: gray)[± std]],
-    [100], [value #text(fill: gray)[± std]],
-    [0], [value #text(fill: gray)[± std]],
+    [6.335050 #text(fill: gray)[± 4.402024]],
+    [88],
+    [0.559221 #text(fill: gray)[± 0.003166]],
+    [100],
+    [98.197302 #text(fill: gray)[± 0.520711]],
+    [176],
+    [0.486966 #text(fill: gray)[± 0.006750]],
 
     table.cell(rowspan: 2)[Schwefel],
     [10],
-    [value #text(fill: gray)[± std]],
-    [0],
-    [value #text(fill: gray)[± std]],
-    [100], [value #text(fill: gray)[± std]],
-    [0], [value #text(fill: gray)[± std]],
+    [726.226428 #text(fill: gray)[± 147.870686]],
+    [666],
+    [0.613979 #text(fill: gray)[± 0.002793]],
+    [100],
+    [17,961.928481 #text(fill: gray)[± 1291.813387]],
+    [666],
+    [0.565550 #text(fill: gray)[± 0.001530]],
 
     table.cell(rowspan: 2)[HappyCat],
     [10],
-    [value #text(fill: gray)[± std]],
-    [0],
-    [value #text(fill: gray)[± std]],
-    [100], [value #text(fill: gray)[± std]],
-    [0], [value #text(fill: gray)[± std]],
+    [7.818743 #text(fill: gray)[± 0.581813]],
+    [345],
+    [0.581429 #text(fill: gray)[± 0.001142]],
+    [100],
+    [129.035375 #text(fill: gray)[± 8.112539]],
+    [385],
+    [0.606574 #text(fill: gray)[± 0.001208]],
+  )
+]
+
+#pagebreak()
+
+#align(center + horizon)[
+  #set text(size: 20pt)
+  #table(
+    columns: (auto, auto, auto, 1fr, auto, auto),
+
+    table.header(strong[A], strong[Função], strong[Di.], strong[Valor], strong[Iter.], strong[Tempo (s)]),
+
+    table.cell(rowspan: 6)[#rotate(-90deg, reflow: true)[ZO-AdaMM]],
+
+    table.cell(rowspan: 2)[Rosenbrock],
+    [10],
+    [4,192,874.631919 #text(fill: gray)[± 931,426.132825]],
+    [5000],
+    [0.313871 #text(fill: gray)[± 0.112952]],
+    [100],
+    [266,982,516.859546 #text(fill: gray)[± 32,520,603.452682]],
+    [5000],
+    [0.435070 #text(fill: gray)[± 0.009591]],
+
+    table.cell(rowspan: 2)[Schwefel],
+    [10],
+    [2,103.521697 #text(fill: gray)[± 206.474611]],
+    [5000],
+    [0.230122 #text(fill: gray)[± 0.015229]],
+    [100],
+    [35,302.975872 #text(fill: gray)[± 2,080.079750]],
+    [5000],
+    [0.298172 #text(fill: gray)[± 0.077311]],
+
+    table.cell(rowspan: 2)[HappyCat],
+    [10],
+    [568.712977 #text(fill: gray)[± 187.351809]],
+    [5000],
+    [0.395836 #text(fill: gray)[± 0.098610]],
+    [100],
+    [1,215.770331 #text(fill: gray)[± 52.405470]],
+    [5000],
+    [0.274836 #text(fill: gray)[± 0.003551]],
   )
 ]

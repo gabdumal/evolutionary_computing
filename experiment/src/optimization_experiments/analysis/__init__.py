@@ -1,3 +1,11 @@
+from .comparison import (
+    AlgorithmComparison,
+    analyze_algorithm_comparison,
+    create_algorithm_comparison_table,
+    create_formatted_comparison_table,
+    create_wide_comparison_table,
+    write_algorithm_comparison_artifacts,
+)
 from .cso import (
     CSOAnalysis,
     analyze_cso,
@@ -37,6 +45,12 @@ from .runs import (
 
 __all__ = [
     "ANALYSIS_METRICS",
+    "AlgorithmComparison",
+    "analyze_algorithm_comparison",
+    "create_algorithm_comparison_table",
+    "create_formatted_comparison_table",
+    "create_wide_comparison_table",
+    "write_algorithm_comparison_artifacts",
     "CSOAnalysis",
     "RunDataset",
     "aggregate_runs",

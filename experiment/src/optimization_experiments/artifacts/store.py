@@ -72,6 +72,33 @@ class ArtifactStore:
         )
 
     @classmethod
+    def for_existing(cls, root: str | Path, experiment_identifier: str) -> "ArtifactStore":
+        """Create a read-only analysis context for an existing experiment."""
+        root = Path(root)
+        experiment_root = root / experiment_identifier
+        experiment_path = experiment_root / "experiment.json"
+        if not experiment_path.is_file():
+            raise FileNotFoundError(f"Experiment artifact not found: {experiment_path}")
+        payload = json.loads(experiment_path.read_text(encoding="utf-8"))
+        if payload.get("experiment_id") != experiment_identifier:
+            raise ValueError("Experiment artifact ID does not match the requested identifier.")
+        store = cls.__new__(cls)
+        store.root = root
+        store.experiment = None
+        store._experiment_identifier = experiment_identifier
+        store.durable = False
+        store.compress_convergence = False
+        store.experiment_root = experiment_root
+        store.paths = ArtifactPaths(
+            experiment=experiment_path,
+            runs=experiment_root / "runs",
+            convergence=experiment_root / "convergence",
+            failures=experiment_root / "failures",
+            analysis=experiment_root / "analysis",
+        )
+        return store
+
+    @classmethod
     def for_worker(
         cls,
         root: str | Path,
