@@ -71,3 +71,33 @@ def test_run_and_statistics_tables():
     assert statistics.iloc[0]["calculated_value__min"] == 1.0
     assert statistics.iloc[0]["calculated_value__max"] == 3.0
     assert statistics.iloc[0]["calculated_value__mean"] == 2.0
+
+
+def test_run_table_from_records_matches_run_table():
+    from optimization_experiments.core.serialization import to_primitive
+
+    results = (make_result(27, 3.0), make_result(32, 1.0))
+    records = tuple(
+        {
+            "run": to_primitive(result.specification),
+            "metrics": {
+                "best_value": result.objective.best_value,
+                "best_solution": list(result.objective.best_solution),
+                "function_evaluations": result.function_evaluations,
+                "iterations": result.iterations,
+                "cpu_seconds": result.timing.cpu_seconds,
+            },
+        }
+        for result in results
+    )
+
+    from optimization_experiments.analysis import create_run_table_from_records
+
+    from_records = create_run_table_from_records(records)
+    from_results = create_run_table(results)
+
+    pd.testing.assert_frame_equal(
+        from_records.sort_values("run_id").reset_index(drop=True),
+        from_results.sort_values("run_id").reset_index(drop=True),
+        check_dtype=False,
+    )

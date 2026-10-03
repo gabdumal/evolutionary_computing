@@ -5,7 +5,16 @@ from typing import Any
 
 import pandas as pd
 
-from ..core.ids import algorithm_id, configuration_id, run_id, scenario_id
+from ..core.ids import (
+    algorithm_id,
+    algorithm_id_from_primitive,
+    configuration_id,
+    configuration_id_from_primitive,
+    run_id,
+    run_id_from_primitive,
+    scenario_id,
+    scenario_id_from_primitive,
+)
 from ..core.models import RunResult
 
 
@@ -15,6 +24,23 @@ ANALYSIS_METRICS = (
     "iterations",
     "cpu_seconds",
 )
+
+
+def _run_table_columns(parameter_names: Sequence[str]) -> list[str]:
+    return [
+        "run_id",
+        "experiment_id",
+        "algorithm_id",
+        "algorithm",
+        "configuration_id",
+        "scenario_id",
+        "objective_function",
+        "problem",
+        "dimension",
+        "seed",
+        *parameter_names,
+        *ANALYSIS_METRICS,
+    ]
 
 
 def create_run_table(results: Sequence[RunResult]) -> pd.DataFrame:
@@ -59,21 +85,64 @@ def create_run_table(results: Sequence[RunResult]) -> pd.DataFrame:
 
         rows.append(row)
 
-    columns = [
-        "run_id",
-        "experiment_id",
-        "algorithm_id",
-        "algorithm",
-        "configuration_id",
-        "scenario_id",
-        "objective_function",
-        "problem",
-        "dimension",
-        "seed",
-        *parameter_names,
-        *ANALYSIS_METRICS,
-    ]
-    return pd.DataFrame.from_records(rows, columns=columns)
+    return pd.DataFrame.from_records(
+        rows,
+        columns=_run_table_columns(parameter_names),
+    )
+
+
+def create_run_table_from_records(
+    records: Sequence[dict[str, Any]],
+) -> pd.DataFrame:
+    """Create the canonical run table without loading convergence arrays."""
+    if not records:
+        return pd.DataFrame()
+
+    parameter_names = tuple(
+        sorted(
+            {
+                parameter
+                for record in records
+                for parameter in record["run"]["algorithm"]["parameters"]
+            }
+        )
+    )
+
+    rows: list[dict[str, Any]] = []
+    for record in records:
+        specification = record["run"]
+        configuration = specification["algorithm"]
+        algorithm = configuration["algorithm"]
+        scenario = specification["scenario"]
+        metrics = record["metrics"]
+
+        row: dict[str, Any] = {
+            "run_id": run_id_from_primitive(specification),
+            "experiment_id": specification["experiment_id"],
+            "algorithm_id": algorithm_id_from_primitive(algorithm),
+            "algorithm": algorithm["name"],
+            "configuration_id": configuration_id_from_primitive(configuration),
+            "scenario_id": scenario_id_from_primitive(scenario),
+            "objective_function": scenario["objective"],
+            "problem": scenario["problem"],
+            "dimension": int(scenario["dimension"]),
+            "seed": int(specification["seed"]),
+            "calculated_value": float(metrics["best_value"]),
+            "function_evaluations": int(metrics["function_evaluations"]),
+            "iterations": int(metrics["iterations"]),
+            "cpu_seconds": float(metrics["cpu_seconds"]),
+        }
+
+        parameters = configuration["parameters"]
+        for parameter in parameter_names:
+            row[parameter] = parameters.get(parameter)
+
+        rows.append(row)
+
+    return pd.DataFrame.from_records(
+        rows,
+        columns=_run_table_columns(parameter_names),
+    )
 
 
 def create_run_statistics_table(
@@ -124,11 +193,14 @@ def create_run_statistics_table(
 
 
 def generate_result_artifacts(
-    experiment: ExperimentSpecification,
+    experiment: Any,
     store,
 ) -> tuple[pd.DataFrame, pd.DataFrame]:
-    results = tuple(store.iter_results())
-    run_table = create_run_table(results)
+    """Generate analysis tables from run JSON metadata, not convergence arrays."""
+    del experiment  # Store is already bound to the experiment.
+
+    records = store.load_run_records()
+    run_table = create_run_table_from_records(records)
     statistics = create_run_statistics_table(run_table)
 
     output = store.paths.analysis
@@ -158,6 +230,7 @@ __all__ = [
     "RunDataset",
     "aggregate_runs",
     "create_run_table",
+    "create_run_table_from_records",
     "create_run_statistics_table",
     "generate_result_artifacts",
 ]

@@ -47,6 +47,10 @@ The registry stores **import paths**, not arbitrary closures or lambda
 functions. This makes adapter construction safe across Python worker
 processes.
 
+The runner keeps only a bounded number of futures in flight (at most the
+configured worker count), so large campaigns do not create one pending Future
+object per run.
+
 Function-evaluation budget is explicit and is the primary cross-algorithm
 resource metric.
 
@@ -117,6 +121,10 @@ std
 ```
 
 for objective value, function evaluations, iterations and CPU time.
+
+The analysis index is built from the lightweight run JSON metadata. Convergence
+arrays stored in `.npz` files are not loaded just to build `run_results.csv` or
+`runs.parquet`; they remain available for dedicated convergence analysis.
 
 ## Scientific timing policy
 

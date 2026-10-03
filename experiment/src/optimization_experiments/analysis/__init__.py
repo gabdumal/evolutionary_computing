@@ -3,6 +3,7 @@ from .runs import (
     RunDataset,
     aggregate_runs,
     create_run_table,
+    create_run_table_from_records,
     create_run_statistics_table,
     generate_result_artifacts,
 )
@@ -12,6 +13,7 @@ __all__ = [
     "RunDataset",
     "aggregate_runs",
     "create_run_table",
+    "create_run_table_from_records",
     "create_run_statistics_table",
     "generate_result_artifacts",
 ]
