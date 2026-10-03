@@ -47,10 +47,6 @@ The registry stores **import paths**, not arbitrary closures or lambda
 functions. This makes adapter construction safe across Python worker
 processes.
 
-The runner keeps only a bounded number of futures in flight (at most the
-configured worker count), so large campaigns do not create one pending Future
-object per run.
-
 Function-evaluation budget is explicit and is the primary cross-algorithm
 resource metric.
 
@@ -122,10 +118,6 @@ std
 
 for objective value, function evaluations, iterations and CPU time.
 
-The analysis index is built from the lightweight run JSON metadata. Convergence
-arrays stored in `.npz` files are not loaded just to build `run_results.csv` or
-`runs.parquet`; they remain available for dedicated convergence analysis.
-
 ## Scientific timing policy
 
 The scientific timing metric is CPU time measured inside the worker with
@@ -144,3 +136,17 @@ enter the scientific experiment identity.
 After the CSO smoke campaign is verified locally with NiaPy 2.7.1+, the next
 adapter can implement ZO-AdaMM without modifying the execution, artifact,
 validation or statistical APIs.
+
+## ZO-AdaMM
+
+The project includes a NumPy implementation of **ZO-AdaMM** based on Algorithm 1 of Chen et al., *ZO-AdaMM: Zeroth-Order Adaptive Momentum Method for Black-Box Optimization* (NeurIPS 2019).
+
+The implementation exposes `learning_rate`, `beta1`, `beta2`, `mu`, `q`, `epsilon`, and `decay_learning_rate` through the same `AlgorithmSpecification` API used by CSO. The paper's zeroth-order estimator uses a forward difference along a random unit direction; the implementation supports `q` independent directions and averages their estimates. The reference authors' experimental script explicitly sets `q=10`, `mu=0.001`, `lr=0.001`, and enables learning-rate decay. The `beta1` and `beta2` values in this package are explicit configuration defaults rather than claims about the paper's reference-script values.
+
+For the benchmark box constraints, the diagonal Mahalanobis projection in Algorithm 1 reduces to coordinate-wise clipping, so no generic constrained optimizer is required.
+
+Run the smoke campaign with:
+
+```bash
+python -m optimization_experiments.cli zoadamm-smoke --workers 1
+```

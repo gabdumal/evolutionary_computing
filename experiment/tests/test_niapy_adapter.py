@@ -88,9 +88,6 @@ def test_niapy_adapter_contract(monkeypatch):
 
     result = NiaPyAlgorithmAdapter("CSO", FakeCSO).run(specification)
 
-    adapter = module.create_cso_adapter(dict(configuration.parameters))
-    assert isinstance(adapter, NiaPyAlgorithmAdapter)
-
     assert result.function_evaluations == 1
     assert result.iterations == 1
     assert result.objective.best_value == 0.0

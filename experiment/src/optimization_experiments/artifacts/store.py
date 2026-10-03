@@ -231,9 +231,9 @@ class ArtifactStore:
         return tuple(records)
 
     def materialize_index(self) -> Path:
-        from ..analysis.runs import create_run_table_from_records
+        from ..analysis.runs import create_run_table
 
-        frame = create_run_table_from_records(self.load_run_records())
+        frame = create_run_table(tuple(self.iter_results()))
         path = self.paths.analysis / "runs.parquet"
         frame.to_parquet(path, index=False)
         return path
