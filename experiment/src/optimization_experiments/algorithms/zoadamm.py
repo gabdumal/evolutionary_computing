@@ -4,7 +4,7 @@ import time
 
 import numpy as np
 
-from ..benchmarks import evaluate_objective, evaluate_objective_batch
+from ..benchmarks import evaluate_objective
 from ..core.models import (
     ConvergenceTrace,
     ObjectiveResult,
@@ -109,19 +109,30 @@ class ZOAdaMMAdapter(AlgorithmAdapter):
                 zero_norm = norms == 0.0
             u /= norms[:, None]
 
-            # Evaluate all q probe points in one vectorized benchmark dispatch.
-            # They still count as `directions` separate function evaluations.
-            probes = np.clip(x + mu * u[:directions], lower, upper)
-            probe_values = evaluate_objective_batch(
-                scenario.objective,
-                probes,
-                scenario.problem_parameters,
-            )
-            evaluations += directions
+            estimates: list[np.ndarray] = []
+            for direction in u:
+                if evaluations >= budget:
+                    break
 
-            # Equation (1) in the paper, averaged over q directions.
-            estimates = (dimension / mu) * (probe_values - fx)[:, None] * u[:directions]
-            g_hat = np.mean(estimates, axis=0)
+                probe = x + mu * direction
+                probe = np.clip(probe, lower, upper)
+                f_probe = evaluate_objective(
+                    scenario.objective,
+                    probe,
+                    scenario.problem_parameters,
+                )
+                evaluations += 1
+
+                # Equation (1) in the paper:
+                # g_hat = (d / mu) [f(x + mu u) - f(x)] u.
+                estimates.append(
+                    (dimension / mu) * (f_probe - fx) * direction
+                )
+
+            if not estimates:
+                break
+
+            g_hat = np.mean(np.stack(estimates, axis=0), axis=0)
 
             iterations += 1
             m = beta1 * m + (1.0 - beta1) * g_hat

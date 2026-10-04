@@ -2,18 +2,24 @@ from __future__ import annotations
 
 import argparse
 import json
-
-import pandas as pd
 from pathlib import Path
 
-from .analysis import create_configuration_manifest, analyze_algorithm_comparison, write_algorithm_comparison_artifacts
+import pandas as pd
+
+from .analysis import (
+    analyze_algorithm_comparison,
+    analyze_results,
+    create_configuration_manifest,
+    write_algorithm_comparison_artifacts,
+    write_analysis_artifacts,
+)
 from .artifacts import ArtifactStore
+from .core.ids import experiment_id
 from .campaigns import run_campaign
 from .experiments.cso import create_cso_smoke_experiment
 from .experiments.cso_campaign import create_cso_grid_experiment
 from .experiments.zoadamm import create_zoadamm_smoke_experiment
 from .experiments.zoadamm_campaign import create_zoadamm_grid_experiment
-from .analysis.runs import create_run_table_from_records
 
 
 def _format_duration(seconds: float) -> str:
@@ -37,23 +43,21 @@ def main() -> None:
         command_parser = subparsers.add_parser(command)
         command_parser.add_argument("--artifact-root", type=Path, default=Path("_artifacts"))
         command_parser.add_argument("--workers", type=int, default=None)
-        command_parser.add_argument("--start-method", choices=("fork", "forkserver", "spawn"), default="forkserver")
+        command_parser.add_argument(
+            "--start-method", choices=("fork", "forkserver", "spawn"), default="forkserver"
+        )
         command_parser.add_argument("--no-analysis", action="store_true")
-        command_parser.add_argument(
-            "--durable-artifacts",
-            action="store_true",
-            help="fsync every artifact; safer against power loss but slower",
-        )
-        command_parser.add_argument(
-            "--compress-convergence",
-            action="store_true",
-            help="compress convergence arrays; saves disk space but costs CPU",
-        )
+        command_parser.add_argument("--durable-artifacts", action="store_true")
+        command_parser.add_argument("--compress-convergence", action="store_true")
 
     for command in ("cso-analyze", "zoadamm-analyze"):
         analyze = subparsers.add_parser(command)
         analyze.add_argument("--artifact-root", type=Path, default=Path("_artifacts"))
         analyze.add_argument("--experiment-id", required=True)
+
+    for command in ("cso-grid-manifest", "zoadamm-grid-manifest"):
+        manifest = subparsers.add_parser(command)
+        manifest.add_argument("--output", type=Path, default=None)
 
     compare = subparsers.add_parser("compare")
     compare.add_argument("--artifact-root", type=Path, default=Path("_artifacts"))
@@ -61,24 +65,7 @@ def main() -> None:
     compare.add_argument("--zoadamm-experiment-id", required=True)
     compare.add_argument("--output-dir", type=Path, default=None)
 
-    for command in ("cso-grid-manifest", "zoadamm-grid-manifest"):
-        manifest = subparsers.add_parser(command)
-    manifest.add_argument("--output", type=Path, default=Path("cso_configuration_grid.csv"))
-
     args = parser.parse_args()
-
-    if args.command == "compare":
-        from .artifacts import ArtifactStore
-
-        cso_store = ArtifactStore.for_existing(args.artifact_root, args.cso_experiment_id)
-        zoadamm_store = ArtifactStore.for_existing(args.artifact_root, args.zoadamm_experiment_id)
-        cso_run_table = pd.read_parquet(cso_store.paths.analysis / "run_results.parquet") if (cso_store.paths.analysis / "run_results.parquet").is_file() else create_run_table_from_records(cso_store.load_run_records())
-        zoadamm_run_table = pd.read_parquet(zoadamm_store.paths.analysis / "run_results.parquet") if (zoadamm_store.paths.analysis / "run_results.parquet").is_file() else create_run_table_from_records(zoadamm_store.load_run_records())
-        comparison = analyze_algorithm_comparison(cso_run_table, zoadamm_run_table)
-        output = args.output_dir or (args.artifact_root / "comparison")
-        write_algorithm_comparison_artifacts(comparison, output)
-        print(f"comparison completed: {output}", flush=True)
-        return
 
     if args.command in {"cso-grid-manifest", "zoadamm-grid-manifest"}:
         experiment = (
@@ -86,45 +73,56 @@ def main() -> None:
             if args.command == "cso-grid-manifest"
             else create_zoadamm_grid_experiment()
         )
+        output = args.output
+        if output is None:
+            output = Path("cso_configuration_grid.csv" if args.command == "cso-grid-manifest" else "zoadamm_configuration_grid.csv")
         frame = create_configuration_manifest(experiment)
-        args.output.parent.mkdir(parents=True, exist_ok=True)
-        frame.to_csv(args.output, index=False)
-        print(f"wrote {len(frame):,} configurations to {args.output}", flush=True)
+        output.parent.mkdir(parents=True, exist_ok=True)
+        frame.to_csv(output, index=False)
+        print(f"wrote {len(frame):,} configurations to {output}", flush=True)
         return
 
     if args.command in {"cso-analyze", "zoadamm-analyze"}:
-        experiment_root = args.artifact_root / args.experiment_id
-        experiment_path = experiment_root / "experiment.json"
-        if not experiment_path.is_file():
-            raise FileNotFoundError(f"Experiment artifact not found: {experiment_path}")
-        payload = json.loads(experiment_path.read_text(encoding="utf-8"))
-        from .artifacts.store import ArtifactPaths
-        store = ArtifactStore.__new__(ArtifactStore)
-        store.root = args.artifact_root
-        store.experiment_root = experiment_root
-        store.paths = ArtifactPaths(
-            experiment=experiment_path,
-            runs=experiment_root / "runs",
-            convergence=experiment_root / "convergence",
-            failures=experiment_root / "failures",
-            analysis=experiment_root / "analysis",
-        )
         experiment = (
             create_cso_grid_experiment()
             if args.command == "cso-analyze"
             else create_zoadamm_grid_experiment()
         )
-        store.experiment = experiment
-        if args.command == "cso-analyze":
-            from .analysis import analyze_cso, write_cso_analysis_artifacts
-            result = analyze_cso(experiment, store)
-            write_cso_analysis_artifacts(result, store.paths.analysis)
-        else:
-            from .analysis import analyze_zoadamm, write_zoadamm_analysis_artifacts
-            result = analyze_zoadamm(experiment, store)
-            write_zoadamm_analysis_artifacts(result, store.paths.analysis)
+        expected_experiment_id = experiment_id(experiment)
+        if args.experiment_id != expected_experiment_id:
+            raise ValueError(
+                f"Experiment ID {args.experiment_id!r} does not match the "
+                f"requested campaign specification {expected_experiment_id!r}."
+            )
+        experiment_root = args.artifact_root / args.experiment_id
+        experiment_path = experiment_root / "experiment.json"
+        if not experiment_path.is_file():
+            raise FileNotFoundError(f"Experiment artifact not found: {experiment_path}")
+        store = ArtifactStore(args.artifact_root, experiment)
+        from .validation import validate_experiment
+        validation = validate_experiment(experiment, store)
+        if not validation.valid:
+            raise RuntimeError("Experiment validation failed:\n" + "\n".join(validation.errors))
+        tables = analyze_results(store.experiment, store)
+        write_analysis_artifacts(tables, store.experiment, store.paths.analysis)
         print(f"analysis completed: {store.paths.analysis}", flush=True)
-        _ = payload
+        return
+
+    if args.command == "compare":
+        cso_root = args.artifact_root / args.cso_experiment_id / "analysis"
+        zoadamm_root = args.artifact_root / args.zoadamm_experiment_id / "analysis"
+        cso_index = cso_root / "runs.parquet"
+        zoadamm_index = zoadamm_root / "runs.parquet"
+        if not cso_index.is_file():
+            raise FileNotFoundError(f"CSO analysis index not found: {cso_index}")
+        if not zoadamm_index.is_file():
+            raise FileNotFoundError(f"ZO-AdaMM analysis index not found: {zoadamm_index}")
+        cso_frame = pd.read_parquet(cso_index)
+        zoadamm_frame = pd.read_parquet(zoadamm_index)
+        comparison = analyze_algorithm_comparison({"CSO": cso_frame, "ZO-AdaMM": zoadamm_frame})
+        output = args.output_dir or (args.artifact_root / "comparison")
+        write_algorithm_comparison_artifacts(comparison, output)
+        print(f"comparison completed: {output}", flush=True)
         return
 
     if args.command == "cso-smoke":

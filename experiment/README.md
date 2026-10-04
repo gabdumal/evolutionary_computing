@@ -1,50 +1,113 @@
 # Optimization Experiments API
 
-Reusable experiment infrastructure for benchmark-based optimization studies.
+Reusable, reproducible infrastructure for benchmark-based optimization experiments.
+The same execution, artifact, validation and analysis layers are used by CSO and
+ZO-AdaMM.
 
-## Current CSO campaign
+## Requirements
 
-The complete CSO campaign uses:
+- Python 3.14+
+- NiaPy 2.7.1+
+- NumPy, pandas and PyArrow
 
-- 4,374 full-factorial configurations;
-- 6 benchmark scenarios (HappyCat, Rosenbrock, Schwefel at dimensions 10 and 100);
-- 3 seeds (27, 32, 59);
-- 10,000 function evaluations per run;
-- 78,732 independent runs.
+Install in the project virtual environment with:
 
-The CSO adapter uses NiaPy's native implementations for the three standard
-benchmarks whenever the scenario exactly matches their documented default
-semantics. This keeps the hot objective-evaluation path out of the project's
-Python dispatcher.
+```bash
+python -m pip install -e ".[dev]"
+```
 
-## Execution performance
+## Experimental design
 
-Artifact persistence is optimized for long-running campaigns by default:
+### CSO
 
-- atomic file replacement is retained;
-- per-run `fsync` is disabled by default;
-- convergence arrays are stored as uncompressed `.npz` by default;
-- convergence checksums are retained;
-- only a bounded number of worker futures is kept in flight.
+The complete CSO campaign uses 4,374 full-factorial configurations, 6 benchmark
+scenarios, 3 seeds `(27, 32, 59)` and 10,000 function evaluations per run:
 
-For maximum filesystem durability, use `--durable-artifacts`.
-For smaller convergence artifacts at the cost of additional CPU, use
-`--compress-convergence`.
+```text
+4,374 configurations × 6 scenarios × 3 seeds = 78,732 runs
+```
 
-The console reports elapsed time, run throughput, ETA, accumulated CPU time,
-accumulated algorithm wall time, average persistence time, active workers,
-and the most recently completed run.
+The six scenarios are HappyCat, Rosenbrock and Schwefel at dimensions 10 and 100.
 
-## Commands
+### ZO-AdaMM
 
-Generate the deterministic CSO configuration manifest:
+The complete ZO-AdaMM campaign uses 864 configurations, the same 6 benchmark
+scenarios, the same 3 seeds and the same 10,000-FE budget:
+
+```text
+864 configurations × 6 scenarios × 3 seeds = 15,552 runs
+```
+
+Its factorial grid varies `learning_rate`, `beta1`, `beta2`, `mu`, `q` and
+`decay_learning_rate`; numerical `epsilon` is fixed at `1e-12`.
+
+Function evaluations are the primary cross-algorithm effort budget. Iteration
+counts and CPU time are secondary measurements.
+
+## Execution and persistence
+
+The runner uses bounded multiprocessing and worker-side persistence so large
+campaigns do not serialize every convergence trace through the parent process.
+The default filesystem mode favors throughput: per-run `fsync` is off and
+convergence arrays are uncompressed `.npz`. Use `--durable-artifacts` when
+filesystem durability is more important than throughput; use
+`--compress-convergence` when disk space is more important than CPU time.
+
+The console reports elapsed wall time, throughput, ETA, accumulated CPU time,
+algorithm wall time and persistence time.
+
+Completed runs are resumable. A run is skipped only when its deterministic
+experiment/run identity already exists in the corresponding experiment
+artifact directory.
+
+## All CLI commands
+
+All commands can be invoked either as:
+
+```bash
+python -m optimization_experiments.cli <command> ...
+```
+
+or, after installation, as:
+
+```bash
+opt-experiments <command> ...
+```
+
+### `cso-smoke`
+
+Runs 18 small CSO runs: one configuration × 6 scenarios × 3 seeds, with a
+1,000-FE budget. Use it after installation to verify the full execution,
+persistence and validation pipeline.
+
+```bash
+python -m optimization_experiments.cli cso-smoke --workers 1
+```
+
+Useful execution options are shared with the full campaigns:
+
+```text
+--artifact-root PATH
+--workers N
+--start-method {fork,forkserver,spawn}
+--no-analysis
+--durable-artifacts
+--compress-convergence
+```
+
+### `cso-grid-manifest`
+
+Generates the deterministic list of all 4,374 CSO configurations without
+executing optimization runs.
 
 ```bash
 python -m optimization_experiments.cli cso-grid-manifest \
   --output cso_configuration_grid.csv
 ```
 
-Run the complete three-seed CSO campaign:
+### `cso-grid`
+
+Runs the complete 78,732-run CSO campaign using the 10,000-FE budget.
 
 ```bash
 python -m optimization_experiments.cli cso-grid --workers 8
@@ -55,76 +118,71 @@ For Linux, the process start method can be selected explicitly:
 ```bash
 python -m optimization_experiments.cli cso-grid \
   --workers 8 \
-  --start-method fork
+  --start-method forkserver
 ```
 
-The default remains `forkserver` for conservative behavior. Existing completed
-runs from an experiment are resumed only when the experiment identity matches.
-The optimized CSO campaign includes a backend marker in its identity so runs
-from the previous generic-objective implementation are not mixed into the new
-campaign.
+Use `--no-analysis` when you want to execute only the campaign and postpone
+analysis. Existing completed runs are still reused.
 
+### `zoadamm-smoke`
 
-## Execution performance
-
-The process pool uses bounded scheduling and persists authoritative run/convergence artifacts inside the worker that executed the run. This avoids serializing the full convergence trace back to the parent process and avoids making the parent a single-file-system writer bottleneck. `--durable-artifacts` enables fsync, while convergence compression remains opt-in with `--compress-convergence`.
-
-For the three native NiaPy benchmarks used by the CSO campaign, the adapter uses NiaPy's native benchmark implementations in the objective-evaluation hot path and falls back to the project's generic objective dispatcher only for scenarios whose semantics do not exactly match a native benchmark.
-
-
-## Recommended full CSO execution
-
-For the complete three-seed campaign, use:
+Runs 18 small ZO-AdaMM runs: one configuration × 6 scenarios × 3 seeds, with a
+1,000-FE budget.
 
 ```bash
-python -m optimization_experiments.cli cso-grid --workers 8
+python -m optimization_experiments.cli zoadamm-smoke --workers 1
 ```
 
-The default execution is non-durable for throughput. Use `--durable-artifacts` only when fsync-on-each-artifact is required. Use `--compress-convergence` only when reduced storage size is worth the additional CPU cost.
+### `zoadamm-grid-manifest`
 
-## Current ZO-AdaMM campaign
-
-The complete three-seed ZO-AdaMM campaign uses 864 full-factorial configurations,
-6 benchmark scenarios (HappyCat, Rosenbrock, Schwefel at dimensions 10 and 100),
-3 seeds (27, 32, 59), and 10,000 function evaluations per run, for 15,552 runs.
-
-The tuned parameters are:
-
-- `learning_rate`: 0.001, 0.003, 0.01, 0.03
-- `beta1`: 0.0, 0.5, 0.9
-- `beta2`: 0.1, 0.5, 0.99
-- `mu`: 0.0001, 0.001, 0.01
-- `q`: 1, 5, 10, 20
-- `decay_learning_rate`: false, true
-
-`epsilon=1e-12` is fixed as a numerical stabilizer and is not treated as a
-scientific hyperparameter. The reference implementation repository uses
-`lr=0.001`, `q=10`, `mu=0.001`, and learning-rate decay in its main experiment
-script. The paper also explicitly discusses a practical preference for smaller
-`beta2` and identifies `beta1,t=0` as an important constrained nonconvex special
-case.
-
-Generate the deterministic ZO-AdaMM configuration manifest:
+Generates the deterministic list of all 864 ZO-AdaMM configurations without
+executing optimization runs.
 
 ```bash
 python -m optimization_experiments.cli zoadamm-grid-manifest \
   --output zoadamm_configuration_grid.csv
 ```
 
-Run the complete three-seed campaign:
+### `zoadamm-grid`
+
+Runs the complete 15,552-run ZO-AdaMM campaign using the same 10,000-FE budget
+as CSO.
 
 ```bash
-python -m optimization_experiments.cli zoadamm-grid --workers 12
+python -m optimization_experiments.cli zoadamm-grid --workers 8
 ```
 
-The campaign analysis writes per-run results, three-seed scenario statistics,
-problem-level configuration summaries, parameter-level effects, dimension-specific
-parameter effects, and both problem-level and problem×dimension selected
-configurations.
+The same `--workers`, `--start-method`, `--no-analysis`, `--durable-artifacts`
+and `--compress-convergence` options are supported.
 
-## Algorithm comparison
+### `cso-analyze`
 
-After completing the CSO and ZO-AdaMM campaigns, generate the final comparison artifacts with:
+Analyzes an already completed CSO experiment without executing any new
+optimization runs. Supply the exact experiment ID printed by the campaign.
+
+```bash
+python -m optimization_experiments.cli cso-analyze \
+  --artifact-root _artifacts \
+  --experiment-id <CSO_EXPERIMENT_ID>
+```
+
+The command validates the completed experiment first and then generates the
+four user-facing analysis CSVs.
+
+### `zoadamm-analyze`
+
+The ZO-AdaMM equivalent of `cso-analyze`.
+
+```bash
+python -m optimization_experiments.cli zoadamm-analyze \
+  --artifact-root _artifacts \
+  --experiment-id <ZOADAMM_EXPERIMENT_ID>
+```
+
+### `compare`
+
+Compares the completed CSO and ZO-AdaMM analyses without rerunning either
+algorithm. Both experiments must already have `analysis/runs.parquet`.
 
 ```bash
 python -m optimization_experiments.cli compare \
@@ -133,4 +191,141 @@ python -m optimization_experiments.cli compare \
   --zoadamm-experiment-id <ZOADAMM_EXPERIMENT_ID>
 ```
 
-The command writes `comparison/algorithm_comparison_results.csv` with one row per selected algorithm/configuration/problem/dimension, `algorithm_comparison_table.csv` with presentation-ready `mean ± std` fields, and `algorithm_comparison_wide.csv` with one row per problem×dimension and one metric block per algorithm. Selection is performed independently for each algorithm and problem×dimension using minimum mean objective value across the three seeds; ties within the configured tolerance use objective standard deviation, mean wall time, and configuration ID.
+The comparison selects the best configuration independently for each
+`algorithm × objective_function × dimension`, using the lowest mean objective
+value over the three seeds. Ties are resolved by objective standard deviation,
+mean CPU time and configuration ID.
+
+The primary comparison outputs are:
+
+- `algorithm_comparison_results.csv`: numerical aggregate table;
+- `algorithm_comparison_table.csv`: formatted `mean ± std` table;
+- `algorithm_comparison_wide.csv`: one row per objective function × dimension;
+- `metadata.json`: comparison and selection rules.
+
+The comparison uses CPU time as its reported execution-time metric.
+
+## Analysis outputs
+
+For each analyzed experiment, the default analysis writes exactly four
+user-facing CSVs under `analysis/`.
+
+### `run_results.csv`
+
+One row per run:
+
+```text
+run_id
+seed
+algorithm
+objective_function
+dimension
+configuration_id
+<resolved parameters>
+calculated_value
+function_evaluations
+iterations
+cpu_seconds
+```
+
+This is the run-level source for all aggregate analyses.
+
+### `configuration_results.csv`
+
+One row per:
+
+```text
+algorithm × objective_function × dimension × configuration
+```
+
+The three seeds are aggregated. Every metric measured across seeds has both
+`mean` and sample `std` (`ddof=1`):
+
+```text
+calculated_value_mean / calculated_value_std
+function_evaluations_mean / function_evaluations_std
+iterations_mean / iterations_std
+cpu_seconds_mean / cpu_seconds_std
+```
+
+`seed_count` records how many seeds contributed to the row.
+
+### `best_configuration_results.csv`
+
+One row per best configuration for each `algorithm × objective_function ×
+dimension` combination. Selection is performed **after aggregating the seeds**:
+the configuration with the lowest `calculated_value_mean` is selected. The
+row retains the complete configuration parameters and the `mean`/`std`
+statistics already present in `configuration_results.csv`. If configurations
+tie on the aggregated mean, all tied configurations are retained. No
+individual seed is selected here.
+
+### `parameter_effects.csv`
+
+Measures marginal parameter effects independently for each
+`algorithm × objective_function × dimension × parameter × parameter_value`.
+The other hyperparameters are averaged over.
+
+For each parameter level, the analysis first averages the configurations
+carrying that level **within each seed**. It then computes the `mean` and
+sample `std` across the executed seeds. Consequently, the reported `std` is
+seed-to-seed variability, not variability among individual configurations.
+
+The table includes:
+
+```text
+mean_calculated_value
+std_calculated_value
+seed_count
+configuration_count
+mean_normalized_effect
+parameter_effect_range
+best_parameter_level
+```
+
+`best_parameter_level` means the best **marginal level of that individual
+parameter**. It is not the globally best configuration.
+
+The normalized effect is 0 for the best parameter level and 1 for the worst
+level within the corresponding parameter group.
+
+## Intermediate and primary raw artifacts
+
+`analysis/runs.parquet` is an intermediate analysis index created from the
+lightweight run JSON metadata. It is not a second scientific source of truth;
+`runs/*.json` remain the authoritative per-run records.
+
+`convergence/*.npz` contains the best-so-far convergence trace versus function
+evaluations. Convergence files are intentionally kept outside the default
+CSV analysis pipeline and are not loaded just to make the four analysis CSVs.
+
+`experiment.json` stores the experiment specification and environment
+provenance. `failures/*.json` records failed runs without treating them as
+completed runs.
+
+## Scientific interpretation
+
+`function_evaluations` is the primary search-effort metric shared by CSO and
+ZO-AdaMM. A fair cross-algorithm comparison therefore uses the same FE budget,
+not the same iteration count. CPU time is a secondary computational-cost
+metric, while iterations describe the internal dynamics of each algorithm.
+
+## CLI
+
+
+### Analysis commands
+
+```bash
+python -m optimization_experiments.cli cso-analyze --experiment-id <CSO_EXPERIMENT_ID>
+python -m optimization_experiments.cli zoadamm-analyze --experiment-id <ZOADAMM_EXPERIMENT_ID>
+```
+
+These commands do not execute new optimization runs. They reopen the completed experiment using the normal `ArtifactStore` constructor, validate the stored runs, and regenerate the four analysis CSVs. The supplied experiment ID must match the corresponding campaign specification.
+
+```bash
+python -m optimization_experiments.cli compare \
+  --cso-experiment-id <CSO_EXPERIMENT_ID> \
+  --zoadamm-experiment-id <ZOADAMM_EXPERIMENT_ID>
+```
+
+The comparison command reads the two `analysis/runs.parquet` indexes directly; it does not reconstruct an `ArtifactStore`.

@@ -1,4 +1,4 @@
-from optimization_experiments.analysis import create_zoadamm_configuration_manifest
+from optimization_experiments.analysis import create_configuration_manifest
 from optimization_experiments.experiments.zoadamm_campaign import (
     ZOADAMM_BUDGET,
     ZOADAMM_EXPECTED_CONFIGURATION_COUNT,
@@ -20,7 +20,7 @@ def test_zoadamm_grid_shape():
 
 def test_zoadamm_grid_manifest():
     experiment = create_zoadamm_grid_experiment()
-    frame = create_zoadamm_configuration_manifest(experiment)
+    frame = create_configuration_manifest(experiment)
     assert len(frame) == ZOADAMM_EXPECTED_CONFIGURATION_COUNT
     assert set(frame["epsilon"]) == {1e-12}
     for name, levels in ZOADAMM_GRID.items():
