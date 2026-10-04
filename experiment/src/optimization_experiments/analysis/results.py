@@ -33,12 +33,13 @@ AGGREGATION_METRICS = RUN_METRIC_COLUMNS
 
 @dataclass(frozen=True, slots=True)
 class AnalysisTables:
-    """The four user-facing analysis products for one experiment."""
+    """The five user-facing analysis products for one experiment."""
 
     run_results: pd.DataFrame
     configuration_results: pd.DataFrame
     best_configuration_results: pd.DataFrame
     parameter_effects: pd.DataFrame
+    parameter_effect_summary: pd.DataFrame
 
 
 @dataclass(frozen=True, slots=True)
@@ -56,7 +57,7 @@ class AnalysisMetadata:
 
     def to_dict(self) -> dict[str, Any]:
         return {
-            "schema_version": 2,
+            "schema_version": 3,
             "experiment_id": self.experiment_id,
             "experiment_name": self.experiment_name,
             "algorithm": self.algorithm,
@@ -80,12 +81,6 @@ class AnalysisMetadata:
                 "configuration_id",
             ],
             "best_configuration_selection": "minimum calculated_value_mean across configurations; ties retain all tied configurations",
-            "best_parameter_level_definition": (
-                "The best_parameter_level column identifies the parameter level with the lowest "
-                "mean_calculated_value among the levels of that parameter within the same "
-                "algorithm×objective_function×dimension group. It is a marginal result and "
-                "must not be interpreted as the globally best configuration."
-            ),
             "seed_aggregation": {
                 "statistics": ["mean", "std"],
                 "std_definition": "sample standard deviation (ddof=1) across the executed seeds",
@@ -93,8 +88,9 @@ class AnalysisMetadata:
             "parameter_effect_definition": (
                 "For each algorithm×objective_function×dimension×parameter×parameter_value, "
                 "average calculated_value over all configurations carrying that level and over all seeds. "
-                "mean_normalized_effect is normalized within parameter levels: 0=best level, 1=worst level. "
-                "The reported standard deviation is calculated over the run-level values contributing to the level."
+                "The level-wise table contains only observed marginal statistics for each parameter level. "
+                "The consolidated parameter-effect summary reports the absolute level range and its normalization "
+                "by the absolute scenario mean objective value."
             ),
         }
 
@@ -227,17 +223,31 @@ def create_best_configuration_results(configuration_results: pd.DataFrame) -> pd
 
 
 def create_parameter_effects(run_results: pd.DataFrame) -> pd.DataFrame:
-    """Measure each parameter's marginal effect with seeds as replicates.
+    """Create the level-wise marginal parameter-effect table.
 
-    For every algorithm×objective_function×dimension×parameter×level, the
-    configurations carrying that level are first averaged *within each seed*.
-    The reported ``mean_calculated_value`` and ``std_calculated_value`` are
-    then computed across those seed-level means.  Thus ``std`` measures
-    variability between the experimental repetitions, rather than variability
-    between individual configurations.
+    The table intentionally contains only observations aggregated for a
+    particular parameter level.  Interpretation across levels (best/worst
+    level, effect magnitude, normalization, etc.) belongs in
+    :func:`create_parameter_effect_summary`.
+
+    Seeds are the experimental replicates: configurations carrying the same
+    parameter level are first averaged within each seed, then the reported
+    mean and sample standard deviation are computed across those seed-level
+    means.
     """
+    columns = [
+        "algorithm",
+        "objective_function",
+        "dimension",
+        "parameter",
+        "parameter_value",
+        "mean_calculated_value",
+        "std_calculated_value",
+        "seed_count",
+        "configuration_count",
+    ]
     if run_results.empty:
-        return pd.DataFrame()
+        return pd.DataFrame(columns=columns)
 
     parameters = _parameter_columns(run_results)
     scenario_columns = ["algorithm", "objective_function", "dimension"]
@@ -261,7 +271,7 @@ def create_parameter_effects(run_results: pd.DataFrame) -> pd.DataFrame:
             scenario_columns, sort=True, dropna=False
         ):
             level_stats = (
-                scenario_levels.groupby(parameter, sort=True, dropna=False)
+                scenario_levels.groupby(parameter, sort=False, dropna=False)
                 .agg(
                     mean_calculated_value=("seed_mean_calculated_value", "mean"),
                     std_calculated_value=(
@@ -274,31 +284,8 @@ def create_parameter_effects(run_results: pd.DataFrame) -> pd.DataFrame:
                 .reset_index()
             )
 
-            best_mean = float(level_stats["mean_calculated_value"].min())
-            worst_mean = float(level_stats["mean_calculated_value"].max())
-            effect_range = worst_mean - best_mean
-            if effect_range == 0.0:
-                normalized = pd.Series(0.0, index=level_stats.index)
-            else:
-                normalized = (
-                    level_stats["mean_calculated_value"] - best_mean
-                ) / effect_range
-
-            best_rows = level_stats.loc[
-                level_stats["mean_calculated_value"] == best_mean
-            ]
-            best_value = min(
-                (_parameter_sort_key(v) for v in best_rows[parameter].tolist())
-            )
-            best_values = [
-                v
-                for v in best_rows[parameter].tolist()
-                if _parameter_sort_key(v) == best_value
-            ]
-            best_parameter = best_values[0]
-
             algorithm, objective_function, dimension = scenario_key
-            for index, level in level_stats.iterrows():
+            for _, level in level_stats.iterrows():
                 rows.append(
                     {
                         "algorithm": algorithm,
@@ -309,19 +296,144 @@ def create_parameter_effects(run_results: pd.DataFrame) -> pd.DataFrame:
                         "mean_calculated_value": float(level["mean_calculated_value"]),
                         "std_calculated_value": float(level["std_calculated_value"]),
                         "seed_count": int(level["seed_count"]),
-                        "configuration_count": int(level["configuration_count"]),
-                        "mean_normalized_effect": float(normalized.loc[index]),
-                        "parameter_effect_range": effect_range,
-                        "best_parameter_level": best_parameter,
+                        "configuration_count": int(round(float(level["configuration_count"]))),
                     }
                 )
 
-    result = pd.DataFrame.from_records(rows)
+    result = pd.DataFrame.from_records(rows, columns=columns)
     if result.empty:
         return result
-    return result.sort_values(
-        [*scenario_columns, "parameter", "mean_normalized_effect", "parameter_value"],
+
+    result["_parameter_sort_order"] = result["parameter_value"].map(_parameter_sort_order)
+    result = result.sort_values(
+        [*scenario_columns, "parameter", "_parameter_sort_order"],
         kind="stable",
+    )
+    return result.drop(columns="_parameter_sort_order").reset_index(drop=True)
+
+
+def create_parameter_effect_summary(
+    run_results: pd.DataFrame,
+    parameter_effects: pd.DataFrame | None = None,
+) -> pd.DataFrame:
+    """Consolidate marginal parameter effects to one row per parameter.
+
+    For each algorithm×objective_function×dimension×parameter group, the
+    absolute effect is the range between the worst and best marginal mean.
+    The normalized effect divides that range by the absolute mean objective
+    value for the complete scenario.  This makes effect magnitudes comparable
+    across benchmark functions with different objective-value scales.
+
+    A parameter with only one evaluated level has no measurable sensitivity;
+    its effect and normalized effect are therefore ``NaN`` rather than zero.
+    """
+    columns = [
+        "algorithm",
+        "objective_function",
+        "dimension",
+        "parameter",
+        "level_count",
+        "best_marginal_parameter_value",
+        "best_marginal_mean",
+        "best_marginal_std",
+        "worst_marginal_parameter_value",
+        "worst_marginal_mean",
+        "worst_marginal_std",
+        "parameter_effect_range",
+        "normalized_parameter_effect",
+        "normalized_parameter_effect_percent",
+    ]
+    if run_results.empty:
+        return pd.DataFrame(columns=columns)
+
+    effects = parameter_effects if parameter_effects is not None else create_parameter_effects(run_results)
+    if effects.empty:
+        return pd.DataFrame(columns=columns)
+
+    scenario_columns = ["algorithm", "objective_function", "dimension"]
+
+    # The denominator uses the same seed-as-replicate convention as the
+    # level-wise effects: first average all runs within each seed, then average
+    # those seed means for the scenario scale.
+    scenario_seed_means = (
+        run_results.groupby([*scenario_columns, "seed"], sort=True, dropna=False)
+        .agg(seed_mean_calculated_value=("calculated_value", "mean"))
+        .reset_index()
+    )
+    scenario_scales = (
+        scenario_seed_means.groupby(scenario_columns, sort=True, dropna=False)
+        ["seed_mean_calculated_value"]
+        .mean()
+        .rename("scenario_mean_calculated_value")
+        .reset_index()
+    )
+
+    rows: list[dict[str, Any]] = []
+    for key, group in effects.groupby(
+        [*scenario_columns, "parameter"], sort=True, dropna=False
+    ):
+        algorithm, objective_function, dimension, parameter = key
+        group = group.reset_index(drop=True)
+        level_count = int(group["parameter_value"].nunique(dropna=False))
+
+        # Stable tie handling uses the parameter's natural ordering, rather
+        # than the order in which configurations happened to be generated.
+        best_mean = float(group["mean_calculated_value"].min())
+        worst_mean = float(group["mean_calculated_value"].max())
+        best_candidates = group.loc[group["mean_calculated_value"] == best_mean].copy()
+        worst_candidates = group.loc[group["mean_calculated_value"] == worst_mean].copy()
+        best_row = best_candidates.sort_values(
+            "parameter_value",
+            key=lambda s: s.map(_parameter_sort_order),
+            kind="stable",
+        ).iloc[0]
+        worst_row = worst_candidates.sort_values(
+            "parameter_value",
+            key=lambda s: s.map(_parameter_sort_order),
+            kind="stable",
+        ).iloc[0]
+
+        if level_count > 1:
+            effect_range = worst_mean - best_mean
+            scenario_mean = float(
+                scenario_scales.loc[
+                    (scenario_scales["algorithm"] == algorithm)
+                    & (scenario_scales["objective_function"] == objective_function)
+                    & (scenario_scales["dimension"] == dimension),
+                    "scenario_mean_calculated_value",
+                ].iloc[0]
+            )
+            if scenario_mean == 0.0:
+                normalized_effect = float("nan")
+            else:
+                normalized_effect = effect_range / abs(scenario_mean)
+        else:
+            effect_range = float("nan")
+            normalized_effect = float("nan")
+
+        rows.append(
+            {
+                "algorithm": algorithm,
+                "objective_function": objective_function,
+                "dimension": int(dimension),
+                "parameter": parameter,
+                "level_count": level_count,
+                "best_marginal_parameter_value": best_row["parameter_value"],
+                "best_marginal_mean": float(best_row["mean_calculated_value"]),
+                "best_marginal_std": float(best_row["std_calculated_value"]),
+                "worst_marginal_parameter_value": worst_row["parameter_value"],
+                "worst_marginal_mean": float(worst_row["mean_calculated_value"]),
+                "worst_marginal_std": float(worst_row["std_calculated_value"]),
+                "parameter_effect_range": effect_range,
+                "normalized_parameter_effect": normalized_effect,
+                "normalized_parameter_effect_percent": (
+                    normalized_effect * 100.0 if pd.notna(normalized_effect) else float("nan")
+                ),
+            }
+        )
+
+    return pd.DataFrame.from_records(rows, columns=columns).sort_values(
+        [*scenario_columns, "parameter"], kind="stable"
     ).reset_index(drop=True)
 
 
@@ -334,11 +446,13 @@ def analyze_results(
     configuration_results = create_configuration_results(run_results)
     best_configuration_results = create_best_configuration_results(configuration_results)
     parameter_effects = create_parameter_effects(run_results)
+    parameter_effect_summary = create_parameter_effect_summary(run_results, parameter_effects)
     return AnalysisTables(
         run_results=run_results,
         configuration_results=configuration_results,
         best_configuration_results=best_configuration_results,
         parameter_effects=parameter_effects,
+        parameter_effect_summary=parameter_effect_summary,
     )
 
 
@@ -349,7 +463,7 @@ def write_analysis_artifacts(
     *,
     write_parquet: bool = True,
 ) -> None:
-    """Persist only the four requested CSVs plus optional Parquet intermediates."""
+    """Persist the five user-facing CSVs plus optional Parquet intermediates."""
     output_path = Path(output)
     output_path.mkdir(parents=True, exist_ok=True)
 
@@ -358,6 +472,7 @@ def write_analysis_artifacts(
         "configuration_results.csv": tables.configuration_results,
         "best_configuration_results.csv": tables.best_configuration_results,
         "parameter_effects.csv": tables.parameter_effects,
+        "parameter_effect_summary.csv": tables.parameter_effect_summary,
     }
     for filename, frame in csvs.items():
         frame.to_csv(output_path / filename, index=False)
@@ -421,6 +536,15 @@ def _run_id(run: dict[str, Any]) -> str:
     return _digest(run, "run")
 
 
+def _parameter_sort_order(value: Any) -> tuple[int, Any]:
+    """Return a stable natural sort key for parameter levels."""
+    if isinstance(value, bool):
+        return (1, int(value))
+    if isinstance(value, (int, float)) and not isinstance(value, bool):
+        return (0, float(value))
+    return (2, _parameter_sort_key(value))
+
+
 def _parameter_sort_key(value: Any) -> str:
     return json.dumps(to_primitive(value), sort_keys=True, separators=(",", ":"), ensure_ascii=True)
 
@@ -433,6 +557,7 @@ __all__ = [
     "create_configuration_results",
     "create_best_configuration_results",
     "create_parameter_effects",
+    "create_parameter_effect_summary",
     "analyze_results",
     "write_analysis_artifacts",
 ]

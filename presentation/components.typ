@@ -8,7 +8,7 @@
   quati-abnt.common.components.foreign_text, quati-abnt.common.components.format_table,
   quati-abnt.note.closed_discussion_note, quati-abnt.note.create_status_note, quati-abnt.note.done_note,
   quati-abnt.note.editor_note, quati-abnt.note.open_discussion_note, quati-abnt.note.progress_note,
-  quati-abnt.note.todo_note,
+  quati-abnt.note.todo_note, strfmt,
 )
 #import "style/style.typ": large_leading, larger_leading, leading, small_leading, theme_color
 
@@ -156,3 +156,10 @@
 }
 
 #let copy_last_heading(level: 2) = context { hydra(level, display: (ctx, it) => it) }
+
+
+// ## Equation. Equação.
+
+#let not_numbered_equation = math.equation.with(block: true, numbering: none)
+#let box_with_equation(x) = box[#not_numbered_equation[#x]]
+#let bfrac(x, y) = math.frac(box_with_equation(x), box_with_equation(y))

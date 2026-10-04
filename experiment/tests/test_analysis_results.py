@@ -5,6 +5,7 @@ from optimization_experiments.analysis.results import (
     create_best_configuration_results,
     create_configuration_results,
     create_parameter_effects,
+    create_parameter_effect_summary,
     create_run_results,
     write_analysis_artifacts,
 )
@@ -97,8 +98,13 @@ def test_four_requested_tables():
     effects = create_parameter_effects(runs)
     c1_effects = effects.loc[effects["parameter"] == "c1"]
     assert set(c1_effects["parameter_value"]) == {1.0, 2.0}
-    assert c1_effects.loc[c1_effects["parameter_value"] == 1.0, "mean_normalized_effect"].iloc[0] == 0.0
-    assert c1_effects.loc[c1_effects["parameter_value"] == 2.0, "mean_normalized_effect"].iloc[0] == 1.0
+    summary = create_parameter_effect_summary(runs, effects)
+    c1_summary = summary.loc[summary["parameter"] == "c1"].iloc[0]
+    assert c1_summary["best_marginal_parameter_value"] == 1.0
+    assert c1_summary["worst_marginal_parameter_value"] == 2.0
+    assert c1_summary["parameter_effect_range"] == 4.0 / 3.0
+    assert c1_summary["normalized_parameter_effect"] > 0.0
+    assert c1_summary["normalized_parameter_effect_percent"] > 0.0
     assert "mean_calculated_value" in c1_effects.columns
     assert "std_calculated_value" in c1_effects.columns
     assert "problem" not in c1_effects.columns
@@ -123,12 +129,20 @@ def test_write_analysis_artifacts_only_requested_outputs(tmp_path: Path):
     )
     runs = create_run_results(records)
     configs = create_configuration_results(runs)
-    tables = AnalysisTables(runs, configs, create_best_configuration_results(configs), create_parameter_effects(runs))
+    effects = create_parameter_effects(runs)
+    tables = AnalysisTables(
+        runs,
+        configs,
+        create_best_configuration_results(configs),
+        effects,
+        create_parameter_effect_summary(runs, effects),
+    )
     write_analysis_artifacts(tables, experiment, tmp_path)
 
     assert sorted(path.name for path in tmp_path.glob("*.csv")) == [
         "best_configuration_results.csv",
         "configuration_results.csv",
+        "parameter_effect_summary.csv",
         "parameter_effects.csv",
         "run_results.csv",
     ]

@@ -19,29 +19,56 @@ from .benchmark import default_benchmark_scenarios
 ZOADAMM_GRID = {
     # Reference code uses 1e-3. The grid broadens this by ~1.5 orders of
     # magnitude on either side while retaining a central reference setting.
-    "learning_rate": (1e-3, 3e-3, 1e-2, 3e-2),
+    "learning_rate": (
+        0.7,
+        1.0,
+        1.5,
+        2.0,
+        3.0,
+    ),
     # beta1=0 is an explicit special case in the paper; larger values test
     # increasing momentum memory.
-    "beta1": (0.0, 0.5, 0.9),
+    "beta1": (
+        0.00,
+        0.25,
+        0.50,
+        0.75,
+        0.90,
+        0.95,
+        0.99,
+    ),
     # The paper notes a practical preference for small beta2; 0.99 is retained
     # as the high-memory reference endpoint.
-    "beta2": (0.1, 0.5, 0.99),
+    "beta2": (
+        0.9999,
+        0.99999,
+        0.999999,
+        0.9999999,
+        0.99999999,
+        0.999999999,
+    ),
     # mu=1e-3 is the reference experimental value; all levels remain small
     # relative to the 1/sqrt(d) bound for d <= 100 used in this campaign.
-    "mu": (1e-4, 1e-3, 1e-2),
+    "mu": (1e-3,),
     # q controls variance reduction versus query consumption per update.
-    "q": (1, 5, 10, 20),
+    "q": (
+        5,
+        10,
+        20,
+        30,
+        40,
+    ),
     # The reference script enables decay; constant alpha is included as a
     # controlled alternative for this benchmark study.
-    "decay_learning_rate": (False, True),
+    "decay_learning_rate": (True,),
 }
 
 ZOADAMM_PARAMETER_ORDER = tuple(ZOADAMM_GRID)
 ZOADAMM_SEEDS = (27, 32, 59)
 ZOADAMM_DIMENSIONS = (10, 100)
 ZOADAMM_BUDGET = 10_000
-ZOADAMM_EXPECTED_CONFIGURATION_COUNT = 864
-ZOADAMM_EXPECTED_RUN_COUNT = 15_552
+ZOADAMM_EXPECTED_CONFIGURATION_COUNT = 1050
+ZOADAMM_EXPECTED_RUN_COUNT = 18900
 ZOADAMM_EPSILON = 1e-12
 
 

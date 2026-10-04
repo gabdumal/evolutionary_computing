@@ -195,6 +195,15 @@
     short: foreign_text[tracing],
     short_capitalized: foreign_text[Tracing],
   ),
+  (
+    key: "za",
+    short: [ZO-AdaMM],
+  ),
+  (
+    key: "best",
+    short: foreign_text[best],
+    short_capitalized: foreign_text[Best],
+  ),
 )
 
 

@@ -167,7 +167,7 @@ python -m optimization_experiments.cli cso-analyze \
 ```
 
 The command validates the completed experiment first and then generates the
-four user-facing analysis CSVs.
+user-facing analysis CSVs.
 
 ### `zoadamm-analyze`
 
@@ -207,7 +207,7 @@ The comparison uses CPU time as its reported execution-time metric.
 
 ## Analysis outputs
 
-For each analyzed experiment, the default analysis writes exactly four
+For each analyzed experiment, the default analysis writes exactly five
 user-facing CSVs under `analysis/`.
 
 ### `run_results.csv`
@@ -262,7 +262,7 @@ individual seed is selected here.
 
 ### `parameter_effects.csv`
 
-Measures marginal parameter effects independently for each
+Contains only the observed marginal statistics for each
 `algorithm × objective_function × dimension × parameter × parameter_value`.
 The other hyperparameters are averaged over.
 
@@ -271,23 +271,61 @@ carrying that level **within each seed**. It then computes the `mean` and
 sample `std` across the executed seeds. Consequently, the reported `std` is
 seed-to-seed variability, not variability among individual configurations.
 
-The table includes:
+The table contains only:
 
 ```text
+algorithm
+objective_function
+dimension
+parameter
+parameter_value
 mean_calculated_value
 std_calculated_value
 seed_count
 configuration_count
-mean_normalized_effect
-parameter_effect_range
-best_parameter_level
 ```
 
-`best_parameter_level` means the best **marginal level of that individual
-parameter**. It is not the globally best configuration.
+It deliberately does **not** contain best/worst levels, effect ranges,
+normalization, rankings, or other cross-level interpretation.
 
-The normalized effect is 0 for the best parameter level and 1 for the worst
-level within the corresponding parameter group.
+### `parameter_effect_summary.csv`
+
+Consolidates the level-wise parameter analysis to one row for each
+`algorithm × objective_function × dimension × parameter` combination. It
+contains:
+
+```text
+level_count
+best_marginal_parameter_value
+best_marginal_mean
+best_marginal_std
+worst_marginal_parameter_value
+worst_marginal_mean
+worst_marginal_std
+parameter_effect_range
+normalized_parameter_effect
+normalized_parameter_effect_percent
+```
+
+`best_marginal_parameter_value` is the best level of that individual
+parameter after marginalizing over the other hyperparameters. It is **not**
+the globally best configuration.
+
+For minimization, the absolute effect is:
+
+```text
+parameter_effect_range = worst_marginal_mean - best_marginal_mean
+```
+
+The normalized effect is the same range divided by the absolute mean
+objective value of the complete `algorithm × objective_function × dimension`
+scenario. This normalization allows effect magnitudes to be compared across
+benchmark functions with different objective-value scales. The percentage
+column is the same quantity multiplied by 100.
+
+If a parameter has only one evaluated level, its sensitivity is **not
+measurable** from that experiment, so the effect and normalized effect are
+`NaN` rather than zero.
 
 ## Intermediate and primary raw artifacts
 
@@ -297,7 +335,7 @@ lightweight run JSON metadata. It is not a second scientific source of truth;
 
 `convergence/*.npz` contains the best-so-far convergence trace versus function
 evaluations. Convergence files are intentionally kept outside the default
-CSV analysis pipeline and are not loaded just to make the four analysis CSVs.
+CSV analysis pipeline and are not loaded just to make the analysis CSVs.
 
 `experiment.json` stores the experiment specification and environment
 provenance. `failures/*.json` records failed runs without treating them as
@@ -320,7 +358,7 @@ python -m optimization_experiments.cli cso-analyze --experiment-id <CSO_EXPERIME
 python -m optimization_experiments.cli zoadamm-analyze --experiment-id <ZOADAMM_EXPERIMENT_ID>
 ```
 
-These commands do not execute new optimization runs. They reopen the completed experiment using the normal `ArtifactStore` constructor, validate the stored runs, and regenerate the four analysis CSVs. The supplied experiment ID must match the corresponding campaign specification.
+These commands do not execute new optimization runs. They reopen the completed experiment using the normal `ArtifactStore` constructor, validate the stored runs, and regenerate the analysis CSVs. The supplied experiment ID must match the corresponding campaign specification.
 
 ```bash
 python -m optimization_experiments.cli compare \

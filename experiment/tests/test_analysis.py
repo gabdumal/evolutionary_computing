@@ -62,4 +62,8 @@ def test_requested_analysis_tables():
 
     effects = create_parameter_effects(runs)
     assert not effects.empty
-    assert "mean_normalized_effect" in effects.columns
+    assert list(effects.columns) == [
+        "algorithm", "objective_function", "dimension", "parameter",
+        "parameter_value", "mean_calculated_value", "std_calculated_value",
+        "seed_count", "configuration_count",
+    ]

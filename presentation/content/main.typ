@@ -159,9 +159,13 @@ Caminha na direção da #stress[melhor solução].
   [
     #stress([#get_term("seed", plural: true, capitalize: true):]) 27, 32, 59.
 
-    #stress[10 000] avaliações\ da função.
+    #stress[10_000] avaliações\ da função.
 
-    #stress[Dimensões:] 10, 100.
+    #stress[Dimensões:] 10, 100
+
+    #stress[Configurações:] 4_374
+
+    #stress[Execuções:] 78_732
   ],
   [
     #table(
@@ -183,29 +187,302 @@ Caminha na direção da #stress[melhor solução].
 
 #pagebreak()
 
+== Métrica
+
+Define-se uma #stress[configuração] ($c$): função de otimização ($f$) aplicada no tamanho de dimensão ($d$). Executa-a $s$ vezes, com #get_term("seed", plural: true) diferentes.
+
+- $f_c$ : valores das #text(fill: theme_color)[soluções] encontradas na combinação $c$.
+- $overline(f_c)$ : média de $f_c$, em todas as #get_term("seed", plural: true).
+
+Fixa-se um #strong[hiperparâmetro] ($p$).\
+Seleciona seu primeiro valor possível ($v$):
+`population_size` = 15
+
+- $f_v$ : valores das #text(fill: theme_color)[soluções] encontradas quando usado $v$.
+- $overline(f_v)$ : média de $f_v$, em todas as #get_term("seed", plural: true).
+
+Calcula-se o mesmo para os próximos $v$, e se forma $V$.
+
+#colbreak()
+
+#copy_last_heading()
+
+Selecionam-se os valores de #text(fill: theme_color)[solução] mais baixo e mais alto em $V$.
+
+Calcula-se o #stress[intervalo] entre eles.
+
+- $G_p = limits(max)_(v)(overline(f_v)) - limits(min)_(v)(overline(f_v))$ : intervalo causado por $p$ nas soluções.
+
+Normaliza-se pela média global daquela configuração.
+
+- $E_p = bfrac(G_p, abs(overline(f_c)))$ : #stress[efeito] do parâmetro $p$ nas soluções.
+
+#strong[Intuição:] o quanto $p$ fez a #stress[amplitude] da média variar.
+
+#pagebreak()
+
+#let cso_sensitivity = (
+  rosenbrock: (
+    d10: (
+      effect: (
+        c1: 17.82252397543381,
+        cdc: 94.51824535313312,
+        max_velocity: 144.29208082813855,
+        mixture_ratio: 197.6221962083765,
+        population_size: 70.2983353517607,
+        smp: 3.5454303427508416,
+        spc: 17.380606977510247,
+        srd: 195.88463941396773,
+      ),
+      best_level: (
+        c1: "1.05",
+        cdc: "1.00",
+        max_velocity: "1.0",
+        mixture_ratio: "0.1",
+        population_size: "15",
+        smp: "5",
+        spc: "False",
+        srd: "0.4",
+      ),
+      selected_params: (
+        c1: "1.05",
+        cdc: "0.60",
+        max_velocity: "1.0",
+        mixture_ratio: "0.1",
+        population_size: "60",
+        smp: "3",
+        spc: "True",
+        srd: "0.1",
+      ),
+    ),
+    d100: (
+      effect: (
+        c1: 18.280341056517354,
+        cdc: 188.8391905023365,
+        max_velocity: 223.15158235581748,
+        mixture_ratio: 278.152681267128,
+        population_size: 77.63716600718466,
+        smp: 48.72529063446382,
+        spc: 56.6665708052558,
+        srd: 272.73942605123545,
+      ),
+      best_level: (
+        c1: "3.05",
+        cdc: "1.00",
+        max_velocity: "1.0",
+        mixture_ratio: "0.1",
+        population_size: "15",
+        smp: "5",
+        spc: "False",
+        srd: "0.4",
+      ),
+      selected_params: (
+        c1: "1.05",
+        cdc: "0.60",
+        max_velocity: "1.9",
+        mixture_ratio: "0.1",
+        population_size: "15",
+        smp: "5",
+        spc: "True",
+        srd: "0.1",
+      ),
+    ),
+  ),
+  schwefel: (
+    d10: (
+      effect: (
+        c1: 0.7454157126034436,
+        cdc: 16.19107099188538,
+        max_velocity: 5.257996350767764,
+        mixture_ratio: 6.823027607410362,
+        population_size: 6.55638721904214,
+        smp: 7.399112461043586,
+        spc: 3.5721400558412277,
+        srd: 30.85207412216593,
+      ),
+      best_level: (
+        c1: "3.05",
+        cdc: "0.60",
+        max_velocity: "3.0",
+        mixture_ratio: "0.5",
+        population_size: "60",
+        smp: "2",
+        spc: "True",
+        srd: "0.1",
+      ),
+      selected_params: (
+        c1: "2.05",
+        cdc: "0.60",
+        max_velocity: "3.0",
+        mixture_ratio: "0.3",
+        population_size: "15",
+        smp: "2",
+        spc: "True",
+        srd: "0.1",
+      ),
+    ),
+    d100: (
+      effect: (
+        c1: 0.5029965519997607,
+        cdc: 3.960549038343239,
+        max_velocity: 1.9796295492822384,
+        mixture_ratio: 2.963454494605499,
+        population_size: 2.4538121523508534,
+        smp: 4.012237848022155,
+        spc: 2.8887438754641,
+        srd: 8.588413596940908,
+      ),
+      best_level: (
+        c1: "3.05",
+        cdc: "0.60",
+        max_velocity: "3.0",
+        mixture_ratio: "0.5",
+        population_size: "15",
+        smp: "2",
+        spc: "True",
+        srd: "0.1",
+      ),
+      selected_params: (
+        c1: "3.05",
+        cdc: "0.60",
+        max_velocity: "3.0",
+        mixture_ratio: "0.5",
+        population_size: "15",
+        smp: "2",
+        spc: "True",
+        srd: "0.1",
+      ),
+    ),
+  ),
+  happy_cat: (
+    d10: (
+      effect: (
+        c1: 0.32303632606498517,
+        cdc: 8.629187267965802,
+        max_velocity: 1.4518540695534585,
+        mixture_ratio: 1.7852977408562416,
+        population_size: 2.3323076716183015,
+        smp: 2.911583426682747,
+        spc: 1.2324506435195468,
+        srd: 5.631585896610847,
+      ),
+      best_level: (
+        c1: "3.05",
+        cdc: "1.00",
+        max_velocity: "1.9",
+        mixture_ratio: "0.1",
+        population_size: "15",
+        smp: "2",
+        spc: "False",
+        srd: "0.4",
+      ),
+      selected_params: (
+        c1: "1.05",
+        cdc: "1.00",
+        max_velocity: "1.9",
+        mixture_ratio: "0.1",
+        population_size: "15",
+        smp: "2",
+        spc: "False",
+        srd: "0.4",
+      ),
+    ),
+    d100: (
+      effect: (
+        c1: 0.14363977964549926,
+        cdc: 12.05829222396496,
+        max_velocity: 0.7144447560998489,
+        mixture_ratio: 4.302734400985881,
+        population_size: 4.3006479332537335,
+        smp: 1.9965287811398478,
+        spc: 4.541560570394624,
+        srd: 11.634167893851057,
+      ),
+      best_level: (
+        c1: "3.05",
+        cdc: "1.0",
+        max_velocity: "1.9",
+        mixture_ratio: "0.5",
+        population_size: "15",
+        smp: "3.0",
+        spc: "False",
+        srd: "0.4",
+      ),
+      selected_params: (
+        c1: "2.05",
+        cdc: "1.00",
+        max_velocity: "1.0",
+        mixture_ratio: "0.3",
+        population_size: "15",
+        smp: "2",
+        spc: "False",
+        srd: "0.4",
+      ),
+    ),
+  ),
+)
+
 == Rosenbrock
 
 #align(center + horizon)[
-  #set text(size: 21pt)
   #table(
-    columns: (auto, auto, auto, auto, auto),
+    columns: (auto, 1fr, 1fr, 1fr, 1fr),
 
     table.header(
       table.cell(rowspan: 2)[#strong[Parâmetro]],
-      table.cell(colspan: 2)[#strong[Intervalo de efeito]],
-      table.cell(colspan: 2)[#strong[Melhor param.]],
-      strong[D=10], strong[D=100],
-      strong[D=10], strong[D=100],
+      table.cell(colspan: 2)[#strong[Dimensões = 10]],
+      table.cell(colspan: 2)[#strong[Dimensões = 100]],
+      strong[#get_term("best", capitalize: true)], strong[Efeito (%)],
+      strong[#get_term("best", capitalize: true)], strong[Efeito (%)],
     ),
 
-    [population_size], [0.014971 #text(fill: gray)[± 0.007576]], [0.006271 #text(fill: gray)[± 0.003174]], [15], [15],
-    [smp], [0.000755 #text(fill: gray)[± 0.000404]], [0.003936 #text(fill: gray)[± 0.002204]], [5], [5],
-    [srd], [0.041717 #text(fill: gray)[± 0.022712]], [0.022032 #text(fill: gray)[± 0.012366]], [0.4], [0.4],
-    [cdc], [0.020129 #text(fill: gray)[± 0.010301]], [0.015254 #text(fill: gray)[± 0.008229]], [0.10], [1.00],
-    [spc], [0.003702 #text(fill: gray)[± 0.002617]], [0.004577 #text(fill: gray)[± 0.003237]], [False], [False],
-    [max_velocity], [0.030730 #text(fill: gray)[± 0.015957]], [0.018026 #text(fill: gray)[± 0.009564]], [1.0], [1.0],
-    [c1], [0.003796 #text(fill: gray)[± 0.001902]], [0.001477 #text(fill: gray)[± 0.000739]], [1.05], [3.05],
-    [mixture_ratio], [0.042087 #text(fill: gray)[± 0.023027]], [0.022469 #text(fill: gray)[± 0.012720]], [0.1], [0.1],
+    [population_size],
+    [#cso_sensitivity.rosenbrock.d10.best_level.population_size],
+    [#strfmt("{:.2}", cso_sensitivity.rosenbrock.d10.effect.population_size)],
+    [#cso_sensitivity.rosenbrock.d100.best_level.population_size],
+    [#strfmt("{:.2}", cso_sensitivity.rosenbrock.d100.effect.population_size)],
+
+    [smp],
+    [#cso_sensitivity.rosenbrock.d10.best_level.smp],
+    [#strfmt("{:.2}", cso_sensitivity.rosenbrock.d10.effect.smp)],
+    [#cso_sensitivity.rosenbrock.d100.best_level.smp],
+    [#strfmt("{:.2}", cso_sensitivity.rosenbrock.d100.effect.smp)],
+
+    [srd],
+    [#cso_sensitivity.rosenbrock.d10.best_level.srd],
+    [#strfmt("{:.2}", cso_sensitivity.rosenbrock.d10.effect.srd)],
+    [#cso_sensitivity.rosenbrock.d100.best_level.srd],
+    [#strfmt("{:.2}", cso_sensitivity.rosenbrock.d100.effect.srd)],
+
+    [cdc],
+    [#cso_sensitivity.rosenbrock.d10.best_level.cdc],
+    [#strfmt("{:.2}", cso_sensitivity.rosenbrock.d10.effect.cdc)],
+    [#cso_sensitivity.rosenbrock.d100.best_level.cdc],
+    [#strfmt("{:.2}", cso_sensitivity.rosenbrock.d100.effect.cdc)],
+
+    [spc],
+    [#cso_sensitivity.rosenbrock.d10.best_level.spc],
+    [#strfmt("{:.2}", cso_sensitivity.rosenbrock.d10.effect.spc)],
+    [#cso_sensitivity.rosenbrock.d100.best_level.spc],
+    [#strfmt("{:.2}", cso_sensitivity.rosenbrock.d100.effect.spc)],
+
+    [max_velocity],
+    [#cso_sensitivity.rosenbrock.d10.best_level.max_velocity],
+    [#strfmt("{:.2}", cso_sensitivity.rosenbrock.d10.effect.max_velocity)],
+    [#cso_sensitivity.rosenbrock.d100.best_level.max_velocity],
+    [#strfmt("{:.2}", cso_sensitivity.rosenbrock.d100.effect.max_velocity)],
+
+    [c1],
+    [#cso_sensitivity.rosenbrock.d10.best_level.c1],
+    [#strfmt("{:.2}", cso_sensitivity.rosenbrock.d10.effect.c1)],
+    [#cso_sensitivity.rosenbrock.d100.best_level.c1],
+    [#strfmt("{:.2}", cso_sensitivity.rosenbrock.d100.effect.c1)],
+
+    [mixture_ratio],
+    [#cso_sensitivity.rosenbrock.d10.best_level.mixture_ratio],
+    [#strfmt("{:.2}", cso_sensitivity.rosenbrock.d10.effect.mixture_ratio)],
+    [#cso_sensitivity.rosenbrock.d100.best_level.mixture_ratio],
+    [#strfmt("{:.2}", cso_sensitivity.rosenbrock.d100.effect.mixture_ratio)],
   )
 ]
 
@@ -214,54 +491,130 @@ Caminha na direção da #stress[melhor solução].
 == Schwefel
 
 #align(center + horizon)[
-  #set text(size: 21pt)
   #table(
-    columns: (auto, auto, auto, auto, auto),
+    columns: (auto, 1fr, 1fr, 1fr, 1fr),
 
     table.header(
       table.cell(rowspan: 2)[#strong[Parâmetro]],
-      table.cell(colspan: 2)[#strong[Intervalo de efeito]],
-      table.cell(colspan: 2)[#strong[Melhor param.]],
-      strong[D=10], strong[D=100],
-      strong[D=10], strong[D=100],
+      table.cell(colspan: 2)[#strong[Dimensões = 10]],
+      table.cell(colspan: 2)[#strong[Dimensões = 100]],
+      strong[#get_term("best", capitalize: true)], strong[Efeito (%)],
+      strong[#get_term("best", capitalize: true)], strong[Efeito (%)],
     ),
 
-    [population_size], [0.055211 #text(fill: gray)[± 0.029898]], [0.042154 #text(fill: gray)[± 0.021077]], [60], [15],
-    [smp], [0.062307 #text(fill: gray)[± 0.033537]], [0.068927 #text(fill: gray)[± 0.036307]], [2], [2],
-    [srd], [0.259802 #text(fill: gray)[± 0.130771]], [0.147541 #text(fill: gray)[± 0.073855]], [0.1], [0.1],
-    [cdc], [0.136344 #text(fill: gray)[± 0.072124]], [0.068039 #text(fill: gray)[± 0.036858]], [0.60], [0.60],
-    [spc], [0.030081 #text(fill: gray)[± 0.021270]], [0.049626 #text(fill: gray)[± 0.035091]], [True], [True],
-    [max_velocity], [0.044277 #text(fill: gray)[± 0.022142]], [0.034008 #text(fill: gray)[± 0.017026]], [3.0], [3.0],
-    [c1], [0.006277 #text(fill: gray)[± 0.003320]], [0.008641 #text(fill: gray)[± 0.004350]], [3.05], [3.05],
-    [mixture_ratio], [0.057456 #text(fill: gray)[± 0.029749]], [0.050910 #text(fill: gray)[± 0.025500]], [0.5], [0.5],
+    [population_size],
+    [#cso_sensitivity.schwefel.d10.best_level.population_size],
+    [#strfmt("{:.2}", cso_sensitivity.schwefel.d10.effect.population_size)],
+    [#cso_sensitivity.schwefel.d100.best_level.population_size],
+    [#strfmt("{:.2}", cso_sensitivity.schwefel.d100.effect.population_size)],
+
+    [smp],
+    [#cso_sensitivity.schwefel.d10.best_level.smp],
+    [#strfmt("{:.2}", cso_sensitivity.schwefel.d10.effect.smp)],
+    [#cso_sensitivity.schwefel.d100.best_level.smp],
+    [#strfmt("{:.2}", cso_sensitivity.schwefel.d100.effect.smp)],
+
+    [srd],
+    [#cso_sensitivity.schwefel.d10.best_level.srd],
+    [#strfmt("{:.2}", cso_sensitivity.schwefel.d10.effect.srd)],
+    [#cso_sensitivity.schwefel.d100.best_level.srd],
+    [#strfmt("{:.2}", cso_sensitivity.schwefel.d100.effect.srd)],
+
+    [cdc],
+    [#cso_sensitivity.schwefel.d10.best_level.cdc],
+    [#strfmt("{:.2}", cso_sensitivity.schwefel.d10.effect.cdc)],
+    [#cso_sensitivity.schwefel.d100.best_level.cdc],
+    [#strfmt("{:.2}", cso_sensitivity.schwefel.d100.effect.cdc)],
+
+    [spc],
+    [#cso_sensitivity.schwefel.d10.best_level.spc],
+    [#strfmt("{:.2}", cso_sensitivity.schwefel.d10.effect.spc)],
+    [#cso_sensitivity.schwefel.d100.best_level.spc],
+    [#strfmt("{:.2}", cso_sensitivity.schwefel.d100.effect.spc)],
+
+    [max_velocity],
+    [#cso_sensitivity.schwefel.d10.best_level.max_velocity],
+    [#strfmt("{:.2}", cso_sensitivity.schwefel.d10.effect.max_velocity)],
+    [#cso_sensitivity.schwefel.d100.best_level.max_velocity],
+    [#strfmt("{:.2}", cso_sensitivity.schwefel.d100.effect.max_velocity)],
+
+    [c1],
+    [#cso_sensitivity.schwefel.d10.best_level.c1],
+    [#strfmt("{:.2}", cso_sensitivity.schwefel.d10.effect.c1)],
+    [#cso_sensitivity.schwefel.d100.best_level.c1],
+    [#strfmt("{:.2}", cso_sensitivity.schwefel.d100.effect.c1)],
+
+    [mixture_ratio],
+    [#cso_sensitivity.schwefel.d10.best_level.mixture_ratio],
+    [#strfmt("{:.2}", cso_sensitivity.schwefel.d10.effect.mixture_ratio)],
+    [#cso_sensitivity.schwefel.d100.best_level.mixture_ratio],
+    [#strfmt("{:.2}", cso_sensitivity.schwefel.d100.effect.mixture_ratio)],
   )
 ]
 
 #pagebreak()
 
-== HappyCat
+== HappyCat #emoji.cat.face.smile
 
 #align(center + horizon)[
-  #set text(size: 21pt)
   #table(
-    columns: (auto, auto, auto, auto, auto),
+    columns: (auto, 1fr, 1fr, 1fr, 1fr),
 
     table.header(
       table.cell(rowspan: 2)[#strong[Parâmetro]],
-      table.cell(colspan: 2)[#strong[Intervalo de efeito]],
-      table.cell(colspan: 2)[#strong[Melhor param.]],
-      strong[D=10], strong[D=100],
-      strong[D=10], strong[D=100],
+      table.cell(colspan: 2)[#strong[Dimensões = 10]],
+      table.cell(colspan: 2)[#strong[Dimensões = 100]],
+      strong[#get_term("best", capitalize: true)], strong[Efeito (%)],
+      strong[#get_term("best", capitalize: true)], strong[Efeito (%)],
     ),
 
-    [population_size], [0.034065 #text(fill: gray)[± 0.017413]], [0.065646 #text(fill: gray)[± 0.033309]], [15], [15],
-    [smp], [0.042525 #text(fill: gray)[± 0.022932]], [0.030476 #text(fill: gray)[± 0.015276]], [2], [3],
-    [srd], [0.082253 #text(fill: gray)[± 0.041264]], [0.177588 #text(fill: gray)[± 0.091153]], [0.4], [0.4],
-    [cdc], [0.126034 #text(fill: gray)[± 0.068111]], [0.184061 #text(fill: gray)[± 0.095695]], [1.00], [1.00],
-    [spc], [0.018001 #text(fill: gray)[± 0.012728]], [0.069324 #text(fill: gray)[± 0.049019]], [False], [False],
-    [max_velocity], [0.021205 #text(fill: gray)[± 0.012169]], [0.010906 #text(fill: gray)[± 0.005453]], [1.9], [1.9],
-    [c1], [0.004718 #text(fill: gray)[± 0.002362]], [0.002193 #text(fill: gray)[± 0.001187]], [3.05], [3.05],
-    [mixture_ratio], [0.026075 #text(fill: gray)[± 0.013843]], [0.065678 #text(fill: gray)[± 0.035794]], [0.1], [0.5],
+    [population_size],
+    [#cso_sensitivity.happy_cat.d10.best_level.population_size],
+    [#strfmt("{:.2}", cso_sensitivity.happy_cat.d10.effect.population_size)],
+    [#cso_sensitivity.happy_cat.d100.best_level.population_size],
+    [#strfmt("{:.2}", cso_sensitivity.happy_cat.d100.effect.population_size)],
+
+    [smp],
+    [#cso_sensitivity.happy_cat.d10.best_level.smp],
+    [#strfmt("{:.2}", cso_sensitivity.happy_cat.d10.effect.smp)],
+    [#cso_sensitivity.happy_cat.d100.best_level.smp],
+    [#strfmt("{:.2}", cso_sensitivity.happy_cat.d100.effect.smp)],
+
+    [srd],
+    [#cso_sensitivity.happy_cat.d10.best_level.srd],
+    [#strfmt("{:.2}", cso_sensitivity.happy_cat.d10.effect.srd)],
+    [#cso_sensitivity.happy_cat.d100.best_level.srd],
+    [#strfmt("{:.2}", cso_sensitivity.happy_cat.d100.effect.srd)],
+
+    [cdc],
+    [#cso_sensitivity.happy_cat.d10.best_level.cdc],
+    [#strfmt("{:.2}", cso_sensitivity.happy_cat.d10.effect.cdc)],
+    [#cso_sensitivity.happy_cat.d100.best_level.cdc],
+    [#strfmt("{:.2}", cso_sensitivity.happy_cat.d100.effect.cdc)],
+
+    [spc],
+    [#cso_sensitivity.happy_cat.d10.best_level.spc],
+    [#strfmt("{:.2}", cso_sensitivity.happy_cat.d10.effect.spc)],
+    [#cso_sensitivity.happy_cat.d100.best_level.spc],
+    [#strfmt("{:.2}", cso_sensitivity.happy_cat.d100.effect.spc)],
+
+    [max_velocity],
+    [#cso_sensitivity.happy_cat.d10.best_level.max_velocity],
+    [#strfmt("{:.2}", cso_sensitivity.happy_cat.d10.effect.max_velocity)],
+    [#cso_sensitivity.happy_cat.d100.best_level.max_velocity],
+    [#strfmt("{:.2}", cso_sensitivity.happy_cat.d100.effect.max_velocity)],
+
+    [c1],
+    [#cso_sensitivity.happy_cat.d10.best_level.c1],
+    [#strfmt("{:.2}", cso_sensitivity.happy_cat.d10.effect.c1)],
+    [#cso_sensitivity.happy_cat.d100.best_level.c1],
+    [#strfmt("{:.2}", cso_sensitivity.happy_cat.d100.effect.c1)],
+
+    [mixture_ratio],
+    [#cso_sensitivity.happy_cat.d10.best_level.mixture_ratio],
+    [#strfmt("{:.2}", cso_sensitivity.happy_cat.d10.effect.mixture_ratio)],
+    [#cso_sensitivity.happy_cat.d100.best_level.mixture_ratio],
+    [#strfmt("{:.2}", cso_sensitivity.happy_cat.d100.effect.mixture_ratio)],
   )
 ]
 
@@ -281,14 +634,69 @@ Caminha na direção da #stress[melhor solução].
       strong[D=10], strong[D=100], strong[D=10], strong[D=100], strong[D=10], strong[D=100],
     ),
 
-    [population_size], [15], [15], [60], [15], [15], [15],
-    [smp], [5], [5], [2], [2], [2], [3],
-    [srd], [0.4], [0.4], [0.1], [0.1], [0.4], [0.4],
-    [cdc], [1.0], [1.0], [0.6], [0.6], [1.0], [1.0],
-    [spc], [False], [False], [True], [True], [False], [False],
-    [max_velocity], [1.0], [1.0], [3.0], [3.0], [1.9], [1.9],
-    [c1], [1.05], [3.05], [3.05], [3.05], [3.05], [3.05],
-    [mixture_ratio], [0.1], [0.1], [0.5], [0.5], [0.1], [0.5],
+    [population_size],
+    [#cso_sensitivity.rosenbrock.d10.selected_params.population_size],
+    [#cso_sensitivity.rosenbrock.d100.selected_params.population_size],
+    [#cso_sensitivity.schwefel.d10.selected_params.population_size],
+    [#cso_sensitivity.schwefel.d100.selected_params.population_size],
+    [#cso_sensitivity.happy_cat.d10.selected_params.population_size],
+    [#cso_sensitivity.happy_cat.d100.selected_params.population_size],
+
+    [smp],
+    [#cso_sensitivity.rosenbrock.d10.selected_params.smp],
+    [#cso_sensitivity.rosenbrock.d100.selected_params.smp],
+    [#cso_sensitivity.schwefel.d10.selected_params.smp],
+    [#cso_sensitivity.schwefel.d100.selected_params.smp],
+    [#cso_sensitivity.happy_cat.d10.selected_params.smp],
+    [#cso_sensitivity.happy_cat.d100.selected_params.smp],
+
+    [srd],
+    [#cso_sensitivity.rosenbrock.d10.selected_params.srd],
+    [#cso_sensitivity.rosenbrock.d100.selected_params.srd],
+    [#cso_sensitivity.schwefel.d10.selected_params.srd],
+    [#cso_sensitivity.schwefel.d100.selected_params.srd],
+    [#cso_sensitivity.happy_cat.d10.selected_params.srd],
+    [#cso_sensitivity.happy_cat.d100.selected_params.srd],
+
+    [cdc],
+    [#cso_sensitivity.rosenbrock.d10.selected_params.cdc],
+    [#cso_sensitivity.rosenbrock.d100.selected_params.cdc],
+    [#cso_sensitivity.schwefel.d10.selected_params.cdc],
+    [#cso_sensitivity.schwefel.d100.selected_params.cdc],
+    [#cso_sensitivity.happy_cat.d10.selected_params.cdc],
+    [#cso_sensitivity.happy_cat.d100.selected_params.cdc],
+
+    [spc],
+    [#cso_sensitivity.rosenbrock.d10.selected_params.spc],
+    [#cso_sensitivity.rosenbrock.d100.selected_params.spc],
+    [#cso_sensitivity.schwefel.d10.selected_params.spc],
+    [#cso_sensitivity.schwefel.d100.selected_params.spc],
+    [#cso_sensitivity.happy_cat.d10.selected_params.spc],
+    [#cso_sensitivity.happy_cat.d100.selected_params.spc],
+
+    [max_velocity],
+    [#cso_sensitivity.rosenbrock.d10.selected_params.max_velocity],
+    [#cso_sensitivity.rosenbrock.d100.selected_params.max_velocity],
+    [#cso_sensitivity.schwefel.d10.selected_params.max_velocity],
+    [#cso_sensitivity.schwefel.d100.selected_params.max_velocity],
+    [#cso_sensitivity.happy_cat.d10.selected_params.max_velocity],
+    [#cso_sensitivity.happy_cat.d100.selected_params.max_velocity],
+
+    [c1],
+    [#cso_sensitivity.rosenbrock.d10.selected_params.c1],
+    [#cso_sensitivity.rosenbrock.d100.selected_params.c1],
+    [#cso_sensitivity.schwefel.d10.selected_params.c1],
+    [#cso_sensitivity.schwefel.d100.selected_params.c1],
+    [#cso_sensitivity.happy_cat.d10.selected_params.c1],
+    [#cso_sensitivity.happy_cat.d100.selected_params.c1],
+
+    [mixture_ratio],
+    [#cso_sensitivity.rosenbrock.d10.selected_params.mixture_ratio],
+    [#cso_sensitivity.rosenbrock.d100.selected_params.mixture_ratio],
+    [#cso_sensitivity.schwefel.d10.selected_params.mixture_ratio],
+    [#cso_sensitivity.schwefel.d100.selected_params.mixture_ratio],
+    [#cso_sensitivity.happy_cat.d10.selected_params.mixture_ratio],
+    [#cso_sensitivity.happy_cat.d100.selected_params.mixture_ratio],
   )
 ]
 
@@ -377,3 +785,37 @@ Caminha na direção da #stress[melhor solução].
     [0.274836 #text(fill: gray)[± 0.003551]],
   )
 ]
+
+#title_slide([Validação do #get_term("za")])
+
+
+== Protocolo
+
+#grid(
+  columns: 2,
+  [
+    #stress([#get_term("seed", plural: true, capitalize: true):]) 27, 32, 59.
+
+    #stress[10 000] avaliações\ da função.
+
+    #stress[Dimensões:] 10, 100.
+  ],
+  [
+    #table(
+      columns: (auto, 1fr, 1fr, 1fr),
+
+      table.header(strong[Parâmetro], table.cell(colspan: 3, strong[Possibilidades])),
+
+      [population_size], [15], [30], [60],
+      [smp], [2], [3], [5],
+      [srd], [0.1], [0.2], [0.4],
+      [cdc], [0.60], [0.85], [1.0],
+      [spc], [], [True], [False],
+      [max_velocity], [1.0], [1.9], [3.0],
+      [c1], [1.05], [2.05], [3.05],
+      [mixture_ratio], [0.1], [0.3], [0.5],
+    )
+  ],
+)
+
+#pagebreak()
