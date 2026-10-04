@@ -34,6 +34,21 @@ class ZOAdaMMAdapter(AlgorithmAdapter):
     name = "ZO-AdaMM"
 
     def run(self, specification: RunSpecification) -> RunResult:
+        return self._run(specification, initial_solution=None)
+
+    def run_from_initial_solution(
+        self,
+        specification: RunSpecification,
+        initial_solution: np.ndarray,
+    ) -> RunResult:
+        return self._run(specification, initial_solution=initial_solution)
+
+    def _run(
+        self,
+        specification: RunSpecification,
+        *,
+        initial_solution: np.ndarray | None,
+    ) -> RunResult:
         parameters = dict(specification.algorithm.parameters)
         scenario = specification.scenario
         budget = specification.budget.max_function_evaluations
@@ -64,7 +79,19 @@ class ZOAdaMMAdapter(AlgorithmAdapter):
         lower = float(scenario.lower_bound)
         upper = float(scenario.upper_bound)
 
-        x = rng.uniform(lower, upper, size=dimension).astype(np.float64)
+        if initial_solution is None:
+            x = rng.uniform(lower, upper, size=dimension).astype(np.float64)
+        else:
+            x = np.asarray(initial_solution, dtype=np.float64).reshape(-1)
+            if x.size != dimension:
+                raise ValueError(
+                    f"initial_solution dimension {x.size} does not match "
+                    f"scenario dimension {dimension}."
+                )
+            if not np.all(np.isfinite(x)):
+                raise ValueError("initial_solution must contain only finite values.")
+            x = np.clip(x, lower, upper).copy()
+
         m = np.zeros(dimension, dtype=np.float64)
         v = np.zeros(dimension, dtype=np.float64)
         v_hat = np.zeros(dimension, dtype=np.float64)

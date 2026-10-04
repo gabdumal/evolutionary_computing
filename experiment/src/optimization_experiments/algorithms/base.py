@@ -69,4 +69,8 @@ def default_registry() -> AlgorithmRegistry:
         "zoadamm",
         "optimization_experiments.algorithms.zoadamm.create_zoadamm_adapter",
     )
+    registry.register(
+        "cso_zoadamm",
+        "optimization_experiments.algorithms.cso_zoadamm.create_cso_zoadamm_adapter",
+    )
     return registry

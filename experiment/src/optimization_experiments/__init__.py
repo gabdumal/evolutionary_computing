@@ -2,6 +2,7 @@ from .algorithms import (
     AlgorithmAdapter,
     AlgorithmRegistry,
     cso_algorithm_specification,
+    cso_zoadamm_algorithm_specification,
     default_registry,
 )
 from .artifacts import ArtifactStore
@@ -54,6 +55,7 @@ __all__ = [
     "algorithm_id",
     "configuration_id",
     "cso_algorithm_specification",
+    "cso_zoadamm_algorithm_specification",
     "default_registry",
     "experiment_id",
     "resolve_configurations",

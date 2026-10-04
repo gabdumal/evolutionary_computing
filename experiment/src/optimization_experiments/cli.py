@@ -20,6 +20,10 @@ from .experiments.cso import create_cso_smoke_experiment
 from .experiments.cso_campaign import create_cso_grid_experiment
 from .experiments.zoadamm import create_zoadamm_smoke_experiment
 from .experiments.zoadamm_campaign import create_zoadamm_grid_experiment
+from .experiments.cso_zoadamm import (
+    create_cso_zoadamm_campaign_experiment,
+    create_cso_zoadamm_smoke_experiment,
+)
 
 
 def _format_duration(seconds: float) -> str:
@@ -39,7 +43,7 @@ def main() -> None:
     parser = argparse.ArgumentParser(prog="opt-experiments")
     subparsers = parser.add_subparsers(dest="command", required=True)
 
-    for command in ("cso-smoke", "cso-grid", "zoadamm-smoke", "zoadamm-grid"):
+    for command in ("cso-smoke", "cso-grid", "zoadamm-smoke", "zoadamm-grid", "hybrid-smoke", "hybrid-campaign"):
         command_parser = subparsers.add_parser(command)
         command_parser.add_argument("--artifact-root", type=Path, default=Path("_artifacts"))
         command_parser.add_argument("--workers", type=int, default=None)
@@ -50,7 +54,7 @@ def main() -> None:
         command_parser.add_argument("--durable-artifacts", action="store_true")
         command_parser.add_argument("--compress-convergence", action="store_true")
 
-    for command in ("cso-analyze", "zoadamm-analyze"):
+    for command in ("cso-analyze", "zoadamm-analyze", "hybrid-analyze"):
         analyze = subparsers.add_parser(command)
         analyze.add_argument("--artifact-root", type=Path, default=Path("_artifacts"))
         analyze.add_argument("--experiment-id", required=True)
@@ -87,6 +91,8 @@ def main() -> None:
             create_cso_grid_experiment()
             if args.command == "cso-analyze"
             else create_zoadamm_grid_experiment()
+            if args.command == "zoadamm-analyze"
+            else create_cso_zoadamm_campaign_experiment()
         )
         expected_experiment_id = experiment_id(experiment)
         if args.experiment_id != expected_experiment_id:
@@ -133,6 +139,10 @@ def main() -> None:
         experiment = create_zoadamm_smoke_experiment()
     elif args.command == "zoadamm-grid":
         experiment = create_zoadamm_grid_experiment()
+    elif args.command == "hybrid-smoke":
+        experiment = create_cso_zoadamm_smoke_experiment()
+    elif args.command == "hybrid-campaign":
+        experiment = create_cso_zoadamm_campaign_experiment()
     else:
         raise AssertionError(f"Unhandled command: {args.command!r}")
 

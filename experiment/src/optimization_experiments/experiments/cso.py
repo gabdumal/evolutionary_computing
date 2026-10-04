@@ -1,7 +1,12 @@
 from __future__ import annotations
 
 from ..algorithms.cso import cso_algorithm_specification
-from ..core.models import AlgorithmConfiguration, EvaluationBudget, ExperimentSpecification, SeedPlan
+from ..core.models import (
+    AlgorithmConfiguration,
+    EvaluationBudget,
+    ExperimentSpecification,
+    SeedPlan,
+)
 from .benchmark import default_benchmark_scenarios
 
 
