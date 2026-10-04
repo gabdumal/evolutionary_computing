@@ -196,7 +196,7 @@
     short_capitalized: foreign_text[Tracing],
   ),
   (
-    key: "za",
+    key: "zoadamm",
     short: [ZO-AdaMM],
   ),
   (

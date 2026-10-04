@@ -133,7 +133,7 @@ Caminha na direção da #stress[melhor solução].
 
 #pagebreak()
 
-== Happy Cat
+== HappyCat
 
 #grid(
   columns: 2,
@@ -450,9 +450,9 @@ Normaliza-se pela média global daquela configuração.
 
     [srd],
     [#cso_sensitivity.rosenbrock.d10.best_level.srd],
-    [#strfmt("{:.2}", cso_sensitivity.rosenbrock.d10.effect.srd)],
+    strong[#strfmt("{:.2}", cso_sensitivity.rosenbrock.d10.effect.srd)],
     [#cso_sensitivity.rosenbrock.d100.best_level.srd],
-    [#strfmt("{:.2}", cso_sensitivity.rosenbrock.d100.effect.srd)],
+    strong[#strfmt("{:.2}", cso_sensitivity.rosenbrock.d100.effect.srd)],
 
     [cdc],
     [#cso_sensitivity.rosenbrock.d10.best_level.cdc],
@@ -480,9 +480,9 @@ Normaliza-se pela média global daquela configuração.
 
     [mixture_ratio],
     [#cso_sensitivity.rosenbrock.d10.best_level.mixture_ratio],
-    [#strfmt("{:.2}", cso_sensitivity.rosenbrock.d10.effect.mixture_ratio)],
+    stress[#strfmt("{:.2}", cso_sensitivity.rosenbrock.d10.effect.mixture_ratio)],
     [#cso_sensitivity.rosenbrock.d100.best_level.mixture_ratio],
-    [#strfmt("{:.2}", cso_sensitivity.rosenbrock.d100.effect.mixture_ratio)],
+    stress[#strfmt("{:.2}", cso_sensitivity.rosenbrock.d100.effect.mixture_ratio)],
   )
 ]
 
@@ -512,17 +512,17 @@ Normaliza-se pela média global daquela configuração.
     [#cso_sensitivity.schwefel.d10.best_level.smp],
     [#strfmt("{:.2}", cso_sensitivity.schwefel.d10.effect.smp)],
     [#cso_sensitivity.schwefel.d100.best_level.smp],
-    [#strfmt("{:.2}", cso_sensitivity.schwefel.d100.effect.smp)],
+    strong[#strfmt("{:.2}", cso_sensitivity.schwefel.d100.effect.smp)],
 
     [srd],
     [#cso_sensitivity.schwefel.d10.best_level.srd],
-    [#strfmt("{:.2}", cso_sensitivity.schwefel.d10.effect.srd)],
+    stress[#strfmt("{:.2}", cso_sensitivity.schwefel.d10.effect.srd)],
     [#cso_sensitivity.schwefel.d100.best_level.srd],
-    [#strfmt("{:.2}", cso_sensitivity.schwefel.d100.effect.srd)],
+    stress[#strfmt("{:.2}", cso_sensitivity.schwefel.d100.effect.srd)],
 
     [cdc],
     [#cso_sensitivity.schwefel.d10.best_level.cdc],
-    [#strfmt("{:.2}", cso_sensitivity.schwefel.d10.effect.cdc)],
+    strong[#strfmt("{:.2}", cso_sensitivity.schwefel.d10.effect.cdc)],
     [#cso_sensitivity.schwefel.d100.best_level.cdc],
     [#strfmt("{:.2}", cso_sensitivity.schwefel.d100.effect.cdc)],
 
@@ -582,15 +582,15 @@ Normaliza-se pela média global daquela configuração.
 
     [srd],
     [#cso_sensitivity.happy_cat.d10.best_level.srd],
-    [#strfmt("{:.2}", cso_sensitivity.happy_cat.d10.effect.srd)],
+    strong[#strfmt("{:.2}", cso_sensitivity.happy_cat.d10.effect.srd)],
     [#cso_sensitivity.happy_cat.d100.best_level.srd],
-    [#strfmt("{:.2}", cso_sensitivity.happy_cat.d100.effect.srd)],
+    strong[#strfmt("{:.2}", cso_sensitivity.happy_cat.d100.effect.srd)],
 
     [cdc],
     [#cso_sensitivity.happy_cat.d10.best_level.cdc],
-    [#strfmt("{:.2}", cso_sensitivity.happy_cat.d10.effect.cdc)],
+    stress[#strfmt("{:.2}", cso_sensitivity.happy_cat.d10.effect.cdc)],
     [#cso_sensitivity.happy_cat.d100.best_level.cdc],
-    [#strfmt("{:.2}", cso_sensitivity.happy_cat.d100.effect.cdc)],
+    stress[#strfmt("{:.2}", cso_sensitivity.happy_cat.d100.effect.cdc)],
 
     [spc],
     [#cso_sensitivity.happy_cat.d10.best_level.spc],
@@ -702,92 +702,134 @@ Normaliza-se pela média global daquela configuração.
 
 == Comparação
 
-#align(center + horizon)[
-  #set text(size: 20pt)
-  #table(
-    columns: (auto, auto, auto, 1fr, auto, auto),
+#let cso_comparison = (
+  rosenbrock: (
+    d10: (
+      value_mean: 6.3350496956147,
+      value_std: 4.40202427888666,
+      iterations: 88,
+      cpu_time: 0.5555250073333203,
+    ),
+    d100: (
+      value_mean: 98.19730234218265,
+      value_std: 0.5207109922675295,
+      iterations: 176,
+      cpu_time: 0.48221419066666255,
+    ),
+  ),
+  schwefel: (
+    d10: (
+      value_mean: 726.2264277266696,
+      value_std: 147.87068627250898,
+      iterations: 666,
+      cpu_time: 0.6101315730000275,
+    ),
+    d100: (
+      value_mean: 17961.92848083907,
+      value_std: 1291.813387001493,
+      iterations: 666,
+      cpu_time: 0.5618326273333878,
+    ),
+  ),
+  happy_cat: (
+    d10: (
+      value_mean: 7.8187429767516115,
+      value_std: 0.5818132610836718,
+      iterations: 345,
+      cpu_time: 0.5772075963333331,
+    ),
+    d100: (
+      value_mean: 129.03537510984057,
+      value_std: 8.11253918223638,
+      iterations: 385,
+      cpu_time: 0.6025498613333866,
+    ),
+  ),
+)
 
-    table.header(strong[A], strong[Função], strong[Di.], strong[Valor], strong[Iter.], strong[Tempo (s)]),
+#align(center + horizon)[
+  #set text(size: 22pt)
+  #table(
+    columns: (auto, auto, auto, 1fr, auto, auto, auto),
+
+    table.header(
+      strong[A],
+      strong[Função],
+      strong[Dim.],
+      table.cell(colspan: 2)[#strong[Valor]],
+      strong[Iterações],
+      strong[Tempo (ms)],
+    ),
 
     table.cell(rowspan: 6)[#rotate(-90deg, reflow: true)[CSO]],
 
     table.cell(rowspan: 2)[Rosenbrock],
     [10],
-    [6.335050 #text(fill: gray)[± 4.402024]],
-    [88],
-    [0.559221 #text(fill: gray)[± 0.003166]],
+    [#strfmt("{:.4}", cso_comparison.rosenbrock.d10.value_mean)],
+    [#text(fill: gray)[± #strfmt("{:.4}", cso_comparison.rosenbrock.d10.value_std)]],
+    [#cso_comparison.rosenbrock.d10.iterations],
+    [#strfmt("{:.4}", cso_comparison.rosenbrock.d10.cpu_time * 1000)],
     [100],
-    [98.197302 #text(fill: gray)[± 0.520711]],
-    [176],
-    [0.486966 #text(fill: gray)[± 0.006750]],
+    [#strfmt("{:.4}", cso_comparison.rosenbrock.d100.value_mean)],
+    [#text(fill: gray)[± #strfmt("{:.4}", cso_comparison.rosenbrock.d100.value_std)]],
+    [#cso_comparison.rosenbrock.d100.iterations],
+    [#strfmt("{:.4}", cso_comparison.rosenbrock.d100.cpu_time * 1000)],
 
     table.cell(rowspan: 2)[Schwefel],
     [10],
-    [726.226428 #text(fill: gray)[± 147.870686]],
-    [666],
-    [0.613979 #text(fill: gray)[± 0.002793]],
+    [#strfmt("{:.4}", cso_comparison.schwefel.d10.value_mean)],
+    [#text(fill: gray)[± #strfmt("{:.4}", cso_comparison.schwefel.d10.value_std)]],
+    [#cso_comparison.schwefel.d10.iterations],
+    [#strfmt("{:.4}", cso_comparison.schwefel.d10.cpu_time * 1000)],
     [100],
-    [17,961.928481 #text(fill: gray)[± 1291.813387]],
-    [666],
-    [0.565550 #text(fill: gray)[± 0.001530]],
+    [#strfmt("{:.4}", cso_comparison.schwefel.d100.value_mean)],
+    [#text(fill: gray)[± #strfmt("{:.4}", cso_comparison.schwefel.d100.value_std)]],
+    [#cso_comparison.schwefel.d100.iterations],
+    [#strfmt("{:.4}", cso_comparison.schwefel.d100.cpu_time * 1000)],
 
     table.cell(rowspan: 2)[HappyCat],
     [10],
-    [7.818743 #text(fill: gray)[± 0.581813]],
-    [345],
-    [0.581429 #text(fill: gray)[± 0.001142]],
+    [#strfmt("{:.4}", cso_comparison.happy_cat.d10.value_mean)],
+    [#text(fill: gray)[± #strfmt("{:.4}", cso_comparison.happy_cat.d10.value_std)]],
+    [#cso_comparison.happy_cat.d10.iterations],
+    [#strfmt("{:.4}", cso_comparison.happy_cat.d10.cpu_time * 1000)],
     [100],
-    [129.035375 #text(fill: gray)[± 8.112539]],
-    [385],
-    [0.606574 #text(fill: gray)[± 0.001208]],
+    [#strfmt("{:.4}", cso_comparison.happy_cat.d100.value_mean)],
+    [#text(fill: gray)[± #strfmt("{:.4}", cso_comparison.happy_cat.d100.value_std)]],
+    [#cso_comparison.happy_cat.d100.iterations],
+    [#strfmt("{:.4}", cso_comparison.happy_cat.d100.cpu_time * 1000)],
   )
 ]
 
 #pagebreak()
 
-#align(center + horizon)[
-  #set text(size: 20pt)
-  #table(
-    columns: (auto, auto, auto, 1fr, auto, auto),
+#title_slide([#get_term("zoadamm")])
 
-    table.header(strong[A], strong[Função], strong[Di.], strong[Valor], strong[Iter.], strong[Tempo (s)]),
+Comentário. #cite_prose(<chen:2019:zoadamm>) #footnote[
+  #cite(<chen:2019:zoadamm>, form: "full")
+].
 
-    table.cell(rowspan: 6)[#rotate(-90deg, reflow: true)[ZO-AdaMM]],
+== Hiperparâmetros
 
-    table.cell(rowspan: 2)[Rosenbrock],
-    [10],
-    [4,192,874.631919 #text(fill: gray)[± 931,426.132825]],
-    [5000],
-    [0.313871 #text(fill: gray)[± 0.112952]],
-    [100],
-    [266,982,516.859546 #text(fill: gray)[± 32,520,603.452682]],
-    [5000],
-    [0.435070 #text(fill: gray)[± 0.009591]],
+#stress[`learning_rate`]: $#math.alpha$.\ #h(leading)
+Taxa de aprendizado.
 
-    table.cell(rowspan: 2)[Schwefel],
-    [10],
-    [2,103.521697 #text(fill: gray)[± 206.474611]],
-    [5000],
-    [0.230122 #text(fill: gray)[± 0.015229]],
-    [100],
-    [35,302.975872 #text(fill: gray)[± 2,080.079750]],
-    [5000],
-    [0.298172 #text(fill: gray)[± 0.077311]],
+#stress[`beta1`]: $#(math.beta) _1$.\ #h(leading)
+Descrição.
 
-    table.cell(rowspan: 2)[HappyCat],
-    [10],
-    [568.712977 #text(fill: gray)[± 187.351809]],
-    [5000],
-    [0.395836 #text(fill: gray)[± 0.098610]],
-    [100],
-    [1,215.770331 #text(fill: gray)[± 52.405470]],
-    [5000],
-    [0.274836 #text(fill: gray)[± 0.003551]],
-  )
-]
+#stress[`beta2`]: $#(math.beta) _2$.\ #h(leading)
+Descrição.
 
-#title_slide([Validação do #get_term("za")])
+#stress[`q`]: $q$.\ #h(leading)
+Descrição.
 
+#stress[`mu`]: $#math.mu$.\ #h(leading)
+Descrição.
+
+#stress[`epsilon`]: $#math.epsilon$.\ #h(leading)
+Descrição.
+
+#pagebreak()
 
 == Protocolo
 
@@ -796,26 +838,387 @@ Normaliza-se pela média global daquela configuração.
   [
     #stress([#get_term("seed", plural: true, capitalize: true):]) 27, 32, 59.
 
-    #stress[10 000] avaliações\ da função.
+    #stress[10_000] avaliações\ da função.
+    Iteração\ custa $q + 1$.
 
-    #stress[Dimensões:] 10, 100.
+    #stress[Dimensões:] 10, 100
+
+    #stress[Configurações:] 1_050
+
+    #stress[Execuções:] 18_900
   ],
   [
     #table(
-      columns: (auto, 1fr, 1fr, 1fr),
+      columns: (auto, 1fr),
 
-      table.header(strong[Parâmetro], table.cell(colspan: 3, strong[Possibilidades])),
+      table.header(strong[Par.], table.cell(colspan: 1, strong[Possibilidades])),
 
-      [population_size], [15], [30], [60],
-      [smp], [2], [3], [5],
-      [srd], [0.1], [0.2], [0.4],
-      [cdc], [0.60], [0.85], [1.0],
-      [spc], [], [True], [False],
-      [max_velocity], [1.0], [1.9], [3.0],
-      [c1], [1.05], [2.05], [3.05],
-      [mixture_ratio], [0.1], [0.3], [0.5],
+      [$#(math.beta) _1$], [0.00, 0.25, 0.50, 0.75, 0.90, 0.95, 0.99],
+      [$#(math.beta) _2$], [0.9999, 0.99999, 0.999999, 0.9999999, 0.99999999, 0.999999999],
+      [$#math.alpha$], [0.7, 1.0, 1.5, 2.0, 3.0],
+      [$q$], [5, 10, 20, 30, 40],
+      [$#math.mu$], [1e-3],
+      [$#math.epsilon$], [1e-12],
     )
   ],
 )
+
+#pagebreak()
+
+#let zoadamm_sensitivity = (
+  rosenbrock: (
+    d10: (
+      effect: (
+        beta1: 250.29929456350737,
+        beta2: 531.0261640961406,
+        learning_rate: 192.53720541403706,
+        q: 220.62104935077417,
+      ),
+      best_level: (
+        beta1: "0.95",
+        beta2: "0.9999",
+        learning_rate: "0.7",
+        q: "5",
+      ),
+      selected_params: (
+        beta1: 0,
+        beta2: 0,
+        learning_rate: 0,
+        q: 0,
+      ),
+    ),
+    d100: (
+      effect: (
+        beta1: 72.99680878671425,
+        beta2: 400.07329000731715,
+        learning_rate: 96.70602727559206,
+        q: 101.15061112486296,
+      ),
+      best_level: (
+        beta1: "0.0",
+        beta2: "0.99999",
+        learning_rate: "0.7",
+        q: "5",
+      ),
+      selected_params: (
+        beta1: 0,
+        beta2: 0,
+        learning_rate: 0,
+        q: 0,
+      ),
+    ),
+  ),
+  schwefel: (
+    d10: (
+      effect: (
+        beta1: 15.766194055661467,
+        beta2: 18.882174618851366,
+        learning_rate: 6.494324332077948,
+        q: 7.443990832617832,
+      ),
+      best_level: (
+        beta1: "0.99",
+        beta2: "0.9999",
+        learning_rate: "0.7",
+        q: "5",
+      ),
+      selected_params: (
+        beta1: 0,
+        beta2: 0,
+        learning_rate: 0,
+        q: 0,
+      ),
+    ),
+    d100: (
+      effect: (
+        beta1: 5.388010338894154,
+        beta2: 51.42347261178604,
+        learning_rate: 10.84135896557368,
+        q: 10.255289026092553,
+      ),
+      best_level: (
+        beta1: "0.0",
+        beta2: "0.99999",
+        learning_rate: "0.7",
+        q: "5",
+      ),
+      selected_params: (
+        beta1: 0,
+        beta2: 0,
+        learning_rate: 0,
+        q: 0,
+      ),
+    ),
+  ),
+  happy_cat: (
+    d10: (
+      effect: (
+        beta1: 285.8244860475796,
+        beta2: 532.2661002906051,
+        learning_rate: 260.5790184563551,
+        q: 260.10161675495857,
+      ),
+      best_level: (
+        beta1: "0.9",
+        beta2: "0.99999",
+        learning_rate: "0.7",
+        q: "5",
+      ),
+      selected_params: (
+        beta1: 0,
+        beta2: 0,
+        learning_rate: 0,
+        q: 0,
+      ),
+    ),
+    d100: (
+      effect: (
+        beta1: 189.2848255737706,
+        beta2: 509.5442055553196,
+        learning_rate: 187.0251819782218,
+        q: 188.95044915740533,
+      ),
+      best_level: (
+        beta1: "0.25",
+        beta2: "0.99999",
+        learning_rate: "0.7",
+        q: "5",
+      ),
+      selected_params: (
+        beta1: 0,
+        beta2: 0,
+        learning_rate: 0,
+        q: 0,
+      ),
+    ),
+  ),
+)
+
+== Rosenbrock
+
+#align(center + horizon)[
+  #table(
+    columns: (auto, 1fr, 1fr, 1fr, 1fr),
+
+    table.header(
+      table.cell(rowspan: 2)[#strong[Parâmetro]],
+      table.cell(colspan: 2)[#strong[Dimensões = 10]],
+      table.cell(colspan: 2)[#strong[Dimensões = 100]],
+      strong[#get_term("best", capitalize: true)], strong[Efeito (%)],
+      strong[#get_term("best", capitalize: true)], strong[Efeito (%)],
+    ),
+
+    [$#(math.beta) _1$],
+    [#zoadamm_sensitivity.rosenbrock.d10.best_level.beta1],
+    [#strfmt("{:.2}", zoadamm_sensitivity.rosenbrock.d10.effect.beta1)],
+    [#zoadamm_sensitivity.rosenbrock.d100.best_level.beta1],
+    [#strfmt("{:.2}", zoadamm_sensitivity.rosenbrock.d100.effect.beta1)],
+
+    [$#(math.beta) _2$],
+    [#zoadamm_sensitivity.rosenbrock.d10.best_level.beta2],
+    [#strfmt("{:.2}", zoadamm_sensitivity.rosenbrock.d10.effect.beta2)],
+    [#zoadamm_sensitivity.rosenbrock.d100.best_level.beta2],
+    [#strfmt("{:.2}", zoadamm_sensitivity.rosenbrock.d100.effect.beta2)],
+
+    [$#math.alpha$],
+    [#zoadamm_sensitivity.rosenbrock.d10.best_level.learning_rate],
+    [#strfmt("{:.2}", zoadamm_sensitivity.rosenbrock.d10.effect.learning_rate)],
+    [#zoadamm_sensitivity.rosenbrock.d100.best_level.learning_rate],
+    [#strfmt("{:.2}", zoadamm_sensitivity.rosenbrock.d100.effect.learning_rate)],
+
+    [$q$],
+    [#zoadamm_sensitivity.rosenbrock.d10.best_level.q],
+    [#strfmt("{:.2}", zoadamm_sensitivity.rosenbrock.d10.effect.q)],
+    [#zoadamm_sensitivity.rosenbrock.d100.best_level.q],
+    [#strfmt("{:.2}", zoadamm_sensitivity.rosenbrock.d100.effect.q)],
+  )
+]
+
+#pagebreak()
+
+== Schwefel
+
+#align(center + horizon)[
+  #table(
+    columns: (auto, 1fr, 1fr, 1fr, 1fr),
+
+    table.header(
+      table.cell(rowspan: 2)[#strong[Parâmetro]],
+      table.cell(colspan: 2)[#strong[Dimensões = 10]],
+      table.cell(colspan: 2)[#strong[Dimensões = 100]],
+      strong[#get_term("best", capitalize: true)], strong[Efeito (%)],
+      strong[#get_term("best", capitalize: true)], strong[Efeito (%)],
+    ),
+
+    [$#(math.beta) _1$],
+    [#zoadamm_sensitivity.schwefel.d10.best_level.beta1],
+    [#strfmt("{:.2}", zoadamm_sensitivity.schwefel.d10.effect.beta1)],
+    [#zoadamm_sensitivity.schwefel.d100.best_level.beta1],
+    [#strfmt("{:.2}", zoadamm_sensitivity.schwefel.d100.effect.beta1)],
+
+    [$#(math.beta) _2$],
+    [#zoadamm_sensitivity.schwefel.d10.best_level.beta2],
+    [#strfmt("{:.2}", zoadamm_sensitivity.schwefel.d10.effect.beta2)],
+    [#zoadamm_sensitivity.schwefel.d100.best_level.beta2],
+    [#strfmt("{:.2}", zoadamm_sensitivity.schwefel.d100.effect.beta2)],
+
+    [$#math.alpha$],
+    [#zoadamm_sensitivity.schwefel.d10.best_level.learning_rate],
+    [#strfmt("{:.2}", zoadamm_sensitivity.schwefel.d10.effect.learning_rate)],
+    [#zoadamm_sensitivity.schwefel.d100.best_level.learning_rate],
+    [#strfmt("{:.2}", zoadamm_sensitivity.schwefel.d100.effect.learning_rate)],
+
+    [$q$],
+    [#zoadamm_sensitivity.schwefel.d10.best_level.q],
+    [#strfmt("{:.2}", zoadamm_sensitivity.schwefel.d10.effect.q)],
+    [#zoadamm_sensitivity.schwefel.d100.best_level.q],
+    [#strfmt("{:.2}", zoadamm_sensitivity.schwefel.d100.effect.q)],
+  )
+]
+
+#pagebreak()
+
+== HappyCat #emoji.cat.face
+
+#align(center + horizon)[
+  #table(
+    columns: (auto, 1fr, 1fr, 1fr, 1fr),
+
+    table.header(
+      table.cell(rowspan: 2)[#strong[Parâmetro]],
+      table.cell(colspan: 2)[#strong[Dimensões = 10]],
+      table.cell(colspan: 2)[#strong[Dimensões = 100]],
+      strong[#get_term("best", capitalize: true)], strong[Efeito (%)],
+      strong[#get_term("best", capitalize: true)], strong[Efeito (%)],
+    ),
+
+    [$#(math.beta) _1$],
+    [#zoadamm_sensitivity.happy_cat.d10.best_level.beta1],
+    [#strfmt("{:.2}", zoadamm_sensitivity.happy_cat.d10.effect.beta1)],
+    [#zoadamm_sensitivity.happy_cat.d100.best_level.beta1],
+    [#strfmt("{:.2}", zoadamm_sensitivity.happy_cat.d100.effect.beta1)],
+
+    [$#(math.beta) _2$],
+    [#zoadamm_sensitivity.happy_cat.d10.best_level.beta2],
+    [#strfmt("{:.2}", zoadamm_sensitivity.happy_cat.d10.effect.beta2)],
+    [#zoadamm_sensitivity.happy_cat.d100.best_level.beta2],
+    [#strfmt("{:.2}", zoadamm_sensitivity.happy_cat.d100.effect.beta2)],
+
+    [$#math.alpha$],
+    [#zoadamm_sensitivity.happy_cat.d10.best_level.learning_rate],
+    [#strfmt("{:.2}", zoadamm_sensitivity.happy_cat.d10.effect.learning_rate)],
+    [#zoadamm_sensitivity.happy_cat.d100.best_level.learning_rate],
+    [#strfmt("{:.2}", zoadamm_sensitivity.happy_cat.d100.effect.learning_rate)],
+
+    [$q$],
+    [#zoadamm_sensitivity.happy_cat.d10.best_level.q],
+    [#strfmt("{:.2}", zoadamm_sensitivity.happy_cat.d10.effect.q)],
+    [#zoadamm_sensitivity.happy_cat.d100.best_level.q],
+    [#strfmt("{:.2}", zoadamm_sensitivity.happy_cat.d100.effect.q)],
+  )
+]
+
+#pagebreak()
+
+== Comparação
+
+#let zoadamm_comparison = (
+  rosenbrock: (
+    d10: (
+      value_mean: 250.53806692661234,
+      value_std: 156.21981154024473,
+      iterations: 323,
+      cpu_time: 0.2223013216666724,
+    ),
+    d100: (
+      value_mean: 213740.62322976338,
+      value_std: 30094.796596907032,
+      iterations: 1667,
+      cpu_time: 0.3203681493333382,
+    ),
+  ),
+  schwefel: (
+    d10: (
+      value_mean: 1130.6785365440953,
+      value_std: 440.29028120680283,
+      iterations: 244,
+      cpu_time: 0.17454021566665764,
+    ),
+    d100: (
+      value_mean: 15529.968298235704,
+      value_std: 1805.6428291596274,
+      iterations: 909,
+      cpu_time: 0.23968857599999982,
+    ),
+  ),
+  happy_cat: (
+    d10: (
+      value_mean: 0.2749897416218396,
+      value_std: 0.04387987513874953,
+      iterations: 1667,
+      cpu_time: 0.2752931750000016,
+    ),
+    d100: (
+      value_mean: 0.7705258363991104,
+      value_std: 0.18092135257377365,
+      iterations: 1667,
+      cpu_time: 0.29675053500000104,
+    ),
+  ),
+)
+
+#align(center + horizon)[
+  #set text(size: 22pt)
+  #table(
+    columns: (auto, auto, auto, 1fr, auto, auto, auto),
+
+    table.header(
+      strong[A],
+      strong[Função],
+      strong[Dim.],
+      table.cell(colspan: 2)[#strong[Valor]],
+      strong[Iterações],
+      strong[Tempo (ms)],
+    ),
+
+    table.cell(rowspan: 6)[#rotate(-90deg, reflow: true)[#get_term("zoadamm")]],
+
+    table.cell(rowspan: 2)[Rosenbrock],
+    [10],
+    [#strfmt("{:.4}", zoadamm_comparison.rosenbrock.d10.value_mean)],
+    [#text(fill: gray)[± #strfmt("{:.4}", zoadamm_comparison.rosenbrock.d10.value_std)]],
+    [#zoadamm_comparison.rosenbrock.d10.iterations],
+    [#strfmt("{:.4}", zoadamm_comparison.rosenbrock.d10.cpu_time * 1000)],
+    [100],
+    [#strfmt("{:.4}", zoadamm_comparison.rosenbrock.d100.value_mean)],
+    [#text(fill: gray)[± #strfmt("{:.4}", zoadamm_comparison.rosenbrock.d100.value_std)]],
+    [#zoadamm_comparison.rosenbrock.d100.iterations],
+    [#strfmt("{:.4}", zoadamm_comparison.rosenbrock.d100.cpu_time * 1000)],
+
+    table.cell(rowspan: 2)[Schwefel],
+    [10],
+    [#strfmt("{:.4}", zoadamm_comparison.schwefel.d10.value_mean)],
+    [#text(fill: gray)[± #strfmt("{:.4}", zoadamm_comparison.schwefel.d10.value_std)]],
+    [#zoadamm_comparison.schwefel.d10.iterations],
+    [#strfmt("{:.4}", zoadamm_comparison.schwefel.d10.cpu_time * 1000)],
+    [100],
+    [#strfmt("{:.4}", zoadamm_comparison.schwefel.d100.value_mean)],
+    [#text(fill: gray)[± #strfmt("{:.4}", zoadamm_comparison.schwefel.d100.value_std)]],
+    [#zoadamm_comparison.schwefel.d100.iterations],
+    [#strfmt("{:.4}", zoadamm_comparison.schwefel.d100.cpu_time * 1000)],
+
+    table.cell(rowspan: 2)[HappyCat],
+    [10],
+    [#strfmt("{:.4}", zoadamm_comparison.happy_cat.d10.value_mean)],
+    [#text(fill: gray)[± #strfmt("{:.4}", zoadamm_comparison.happy_cat.d10.value_std)]],
+    [#zoadamm_comparison.happy_cat.d10.iterations],
+    [#strfmt("{:.4}", zoadamm_comparison.happy_cat.d10.cpu_time * 1000)],
+    [100],
+    [#strfmt("{:.4}", zoadamm_comparison.happy_cat.d100.value_mean)],
+    [#text(fill: gray)[± #strfmt("{:.4}", zoadamm_comparison.happy_cat.d100.value_std)]],
+    [#zoadamm_comparison.happy_cat.d100.iterations],
+    [#strfmt("{:.4}", zoadamm_comparison.happy_cat.d100.cpu_time * 1000)],
+  )
+]
 
 #pagebreak()
