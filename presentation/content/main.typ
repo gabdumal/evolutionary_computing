@@ -700,6 +700,8 @@ Normaliza-se pela média global daquela configuração.
   )
 ]
 
+#pagebreak()
+
 == Comparação
 
 #let cso_comparison = (
@@ -805,29 +807,77 @@ Normaliza-se pela média global daquela configuração.
 
 #title_slide([#get_term("zoadamm")])
 
-Comentário. #cite_prose(<chen:2019:zoadamm>) #footnote[
+== Ideia
+
+O #stress[ZO-AdaMM] #cite(<chen:2019:zoadamm>) #footnote[
   #cite(<chen:2019:zoadamm>, form: "full")
-].
+] é um método de #strong[ordem zero]: usa apenas valores de $f$, sem gradiente analítico.
+
+Une duas ideias:
+- #strong[estimar] o gradiente por diferenças finitas, em direções aleatórias;
+- #strong[usar] a estimativa em um passo adaptativo, no estilo #foreign_text[Adam] (momento e escala por dimensão).
+
+Mantém #stress[um único ponto] $x$, que se move a cada iteração.
+
+#pagebreak()
 
 == Hiperparâmetros
 
 #stress[`learning_rate`]: $#math.alpha$.\ #h(leading)
-Taxa de aprendizado.
+Tamanho base do passo. Decai com $1 slash sqrt(t)$.
 
 #stress[`beta1`]: $#(math.beta) _1$.\ #h(leading)
-Descrição.
+Peso do momento: quanto da direção anterior é mantida.\ #h(leading)
+Com 0, não há momento.
 
 #stress[`beta2`]: $#(math.beta) _2$.\ #h(leading)
-Descrição.
+Memória da escala do gradiente.\ #h(leading)
+Janela efetiva de $approx 1 slash (1 - #(math.beta) _2)$ iterações.
 
 #stress[`q`]: $q$.\ #h(leading)
-Descrição.
+Direções por estimativa. Reduz a variância do gradiente,\ #h(leading)mas
+diminui o número de iterações no orçamento.
 
 #stress[`mu`]: $#math.mu$.\ #h(leading)
-Descrição.
+Raio de suavização da diferença finita.\ #h(leading)
+#strong[Fixo] em $10^(-3)$: não variou significativamente em testes exploratórios.
 
 #stress[`epsilon`]: $#math.epsilon$.\ #h(leading)
-Descrição.
+Evita divisão por zero.\ #h(leading)
+#strong[Fixo] em $10^(-12)$.
+
+#pagebreak()
+
+== Algoritmo
+
+A cada iteração $t$:
+
++ Sorteia $q$ #strong[direções] unitárias $u_i$.
++ #strong[Estima o gradiente:]\
+  $hat(g) = d / (#math.mu q) sum_(i=1)^q [f(x + #math.mu u_i) - f(x)] u_i$
++ #strong[Atualiza] momento e escala:\
+  $m = #(math.beta) _1 m + (1 - #(math.beta) _1) hat(g)$\
+  $v = #(math.beta) _2 v + (1 - #(math.beta) _2) hat(g)^2$
++ #strong[Move:]\
+  $x = x - #math.alpha _t dot m / (sqrt(v) + #math.epsilon)$, com $#math.alpha _t = #math.alpha slash sqrt(t)$
+
+Cada iteração custa #stress[$q + 1$] avaliações de $f$.
+
+#pagebreak()
+
+== Diferenças na busca
+
+#align(center + horizon)[
+  #table(
+    columns: (auto, 1fr, 1fr),
+    table.header([], strong[CSO], strong[#get_term("zoadamm")]),
+
+    [Estado], [População de gatos], [Um único ponto],
+    [Informação], [Amostragem direta e melhor global], [Gradiente estimado e momento],
+    [Exploração], [Global, aleatória\ (seeking e tracing)], [Local, direcionada],
+    [Custo por iteração], [Depende de `smp` e `spc`], [$q + 1$],
+  )
+]
 
 #pagebreak()
 
@@ -839,7 +889,6 @@ Descrição.
     #stress([#get_term("seed", plural: true, capitalize: true):]) 27, 32, 59.
 
     #stress[10_000] avaliações\ da função.
-    Iteração\ custa $q + 1$.
 
     #stress[Dimensões:] 10, 100
 
@@ -876,15 +925,15 @@ Descrição.
       ),
       best_level: (
         beta1: "0.95",
-        beta2: "0.9999",
+        beta2: "0.999_9",
         learning_rate: "0.7",
         q: "5",
       ),
       selected_params: (
-        beta1: 0,
-        beta2: 0,
-        learning_rate: 0,
-        q: 0,
+        beta1: "0.9",
+        beta2: "0.999_999_9",
+        learning_rate: "2.0",
+        q: "30",
       ),
     ),
     d100: (
@@ -896,15 +945,15 @@ Descrição.
       ),
       best_level: (
         beta1: "0.0",
-        beta2: "0.99999",
+        beta2: "0.999_99",
         learning_rate: "0.7",
         q: "5",
       ),
       selected_params: (
-        beta1: 0,
-        beta2: 0,
-        learning_rate: 0,
-        q: 0,
+        beta1: "0.0",
+        beta2: "0.999_999_99",
+        learning_rate: "1.5",
+        q: "5",
       ),
     ),
   ),
@@ -918,15 +967,15 @@ Descrição.
       ),
       best_level: (
         beta1: "0.99",
-        beta2: "0.9999",
+        beta2: "0.999_9",
         learning_rate: "0.7",
         q: "5",
       ),
       selected_params: (
-        beta1: 0,
-        beta2: 0,
-        learning_rate: 0,
-        q: 0,
+        beta1: "0.95",
+        beta2: "0.999_999_9",
+        learning_rate: "2.0",
+        q: "40",
       ),
     ),
     d100: (
@@ -938,15 +987,15 @@ Descrição.
       ),
       best_level: (
         beta1: "0.0",
-        beta2: "0.99999",
+        beta2: "0.999_99",
         learning_rate: "0.7",
         q: "5",
       ),
       selected_params: (
-        beta1: 0,
-        beta2: 0,
-        learning_rate: 0,
-        q: 0,
+        beta1: "0.0",
+        beta2: "0.999_999",
+        learning_rate: "0.7",
+        q: "10",
       ),
     ),
   ),
@@ -960,15 +1009,15 @@ Descrição.
       ),
       best_level: (
         beta1: "0.9",
-        beta2: "0.99999",
+        beta2: "0.999_99",
         learning_rate: "0.7",
         q: "5",
       ),
       selected_params: (
-        beta1: 0,
-        beta2: 0,
-        learning_rate: 0,
-        q: 0,
+        beta1: "0.9",
+        beta2: "0.999_99",
+        learning_rate: "0.7",
+        q: "5",
       ),
     ),
     d100: (
@@ -980,19 +1029,68 @@ Descrição.
       ),
       best_level: (
         beta1: "0.25",
-        beta2: "0.99999",
+        beta2: "0.999_99",
         learning_rate: "0.7",
         q: "5",
       ),
       selected_params: (
-        beta1: 0,
-        beta2: 0,
-        learning_rate: 0,
-        q: 0,
+        beta1: "0.99",
+        beta2: "0.999_9",
+        learning_rate: "1.5",
+        q: "5",
       ),
     ),
   ),
 )
+
+== Parâmetros selecionados
+
+#align(center + horizon)[
+  #set text(size: 21pt)
+  #table(
+    columns: (1fr, auto, auto, auto, auto, auto, auto),
+
+    table.header(
+      table.cell(rowspan: 2)[#strong[P.]],
+      table.cell(colspan: 2)[#strong[Rosenbrock]],
+      table.cell(colspan: 2)[#strong[Schwefel]],
+      table.cell(colspan: 2)[#strong[HappyCat]],
+      strong[D=10], strong[D=100], strong[D=10], strong[D=100], strong[D=10], strong[D=100],
+    ),
+
+    [$#(math.beta) _1$],
+    [#zoadamm_sensitivity.rosenbrock.d10.selected_params.beta1],
+    [#zoadamm_sensitivity.rosenbrock.d100.selected_params.beta1],
+    [#zoadamm_sensitivity.schwefel.d10.selected_params.beta1],
+    [#zoadamm_sensitivity.schwefel.d100.selected_params.beta1],
+    [#zoadamm_sensitivity.happy_cat.d10.selected_params.beta1],
+    [#zoadamm_sensitivity.happy_cat.d100.selected_params.beta1],
+
+    [$#(math.beta) _2$],
+    [#zoadamm_sensitivity.rosenbrock.d10.selected_params.beta2],
+    [#zoadamm_sensitivity.rosenbrock.d100.selected_params.beta2],
+    [#zoadamm_sensitivity.schwefel.d10.selected_params.beta2],
+    [#zoadamm_sensitivity.schwefel.d100.selected_params.beta2],
+    [#zoadamm_sensitivity.happy_cat.d10.selected_params.beta2],
+    [#zoadamm_sensitivity.happy_cat.d100.selected_params.beta2],
+
+    [$#math.alpha$],
+    [#zoadamm_sensitivity.rosenbrock.d10.selected_params.learning_rate],
+    [#zoadamm_sensitivity.rosenbrock.d100.selected_params.learning_rate],
+    [#zoadamm_sensitivity.schwefel.d10.selected_params.learning_rate],
+    [#zoadamm_sensitivity.schwefel.d100.selected_params.learning_rate],
+    [#zoadamm_sensitivity.happy_cat.d10.selected_params.learning_rate],
+    [#zoadamm_sensitivity.happy_cat.d100.selected_params.learning_rate],
+
+    [$q$],
+    [#zoadamm_sensitivity.rosenbrock.d10.selected_params.q],
+    [#zoadamm_sensitivity.rosenbrock.d100.selected_params.q],
+    [#zoadamm_sensitivity.schwefel.d10.selected_params.q],
+    [#zoadamm_sensitivity.schwefel.d100.selected_params.q],
+    [#zoadamm_sensitivity.happy_cat.d10.selected_params.q],
+    [#zoadamm_sensitivity.happy_cat.d100.selected_params.q],
+  )
+]
 
 == Rosenbrock
 
