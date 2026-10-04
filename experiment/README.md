@@ -52,16 +52,20 @@ then passed as the initial point to ZO-AdaMM, which uses the remaining 20% for
 refinement. The hybrid keeps the same total number of function evaluations as
 the standalone methods.
 
-The final campaign uses one fixed configuration, 6 benchmark scenarios,
-3 seeds `(27, 32, 59)` and 100,000 FEs per run:
+The final campaign uses 6 validated configurations, one for each objective-function × dimension pair,
+6 benchmark scenarios, 3 seeds `(27, 32, 59)` and 10,000 FEs per run:
 
 ```text
-1 configuration × 6 benchmark scenarios × 3 seeds = 18 runs
-80,000 FEs CSO + 20,000 FEs ZO-AdaMM = 100,000 FEs/run
+6 configurations × 6 benchmark scenarios × 3 seeds would overcount the design, so the
+experiment binds exactly one validated configuration to each scenario:
+6 scenario-specific configurations × 3 seeds = 18 runs
+80,000 FEs CSO + 20,000 FEs ZO-AdaMM = 10,000 FEs/run
 ```
 
-The fixed underlying CSO and ZO-AdaMM parameters are the canonical defaults
-already defined by the project.
+Each hybrid scenario uses the best CSO configuration and the best ZO-AdaMM
+configuration selected independently in the standalone 3-seed validation.
+The six objective-function × dimension pairs therefore have six resolved
+hybrid parameter configurations; no generic CSO or ZO-AdaMM defaults are used.
 
 ## Execution and persistence
 
@@ -176,7 +180,8 @@ and `--compress-convergence` options are supported.
 
 ### `hybrid-smoke`
 
-Runs 18 small CSO → ZO-AdaMM smoke runs using an 80/20 FE split.
+Runs 18 small CSO → ZO-AdaMM smoke runs using an 80/20 FE split and the
+validated component parameters for each objective-function × dimension pair.
 
 ```bash
 python -m optimization_experiments.cli hybrid-smoke --workers 1
@@ -184,13 +189,14 @@ python -m optimization_experiments.cli hybrid-smoke --workers 1
 
 ### `hybrid-campaign`
 
-Runs the final 18-run CSO → ZO-AdaMM campaign with 100,000 FEs per run.
+Runs the final 18-run CSO → ZO-AdaMM campaign with 10,000 FEs per run and
+the validated component parameters for each objective-function × dimension pair.
 
 ```bash
 python -m optimization_experiments.cli hybrid-campaign --workers 8
 ```
 
-The hybrid uses 80,000 FEs for CSO followed by 20,000 FEs for ZO-AdaMM.
+The hybrid uses 8,000 FEs for CSO followed by 2,000 FEs for ZO-AdaMM.
 
 ### `hybrid-analyze`
 
@@ -397,7 +403,6 @@ not the same iteration count. CPU time is a secondary computational-cost
 metric, while iterations describe the internal dynamics of each algorithm.
 
 ## CLI
-
 
 ### Analysis commands
 

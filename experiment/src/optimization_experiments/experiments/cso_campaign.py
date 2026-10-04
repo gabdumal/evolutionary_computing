@@ -83,6 +83,7 @@ def create_cso_grid_experiment() -> ExperimentSpecification:
     )
     if experiment.run_count != CSO_EXPECTED_RUN_COUNT:
         raise RuntimeError(
-            f"CSO grid produced {experiment.run_count} runs; expected {CSO_EXPECTED_RUN_COUNT}."
+            f"CSO grid produced {experiment.run_count} runs; "
+            f"expected {CSO_EXPECTED_RUN_COUNT}."
         )
     return experiment

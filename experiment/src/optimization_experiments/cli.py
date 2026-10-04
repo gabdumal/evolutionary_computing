@@ -86,7 +86,7 @@ def main() -> None:
         print(f"wrote {len(frame):,} configurations to {output}", flush=True)
         return
 
-    if args.command in {"cso-analyze", "zoadamm-analyze"}:
+    if args.command in {"cso-analyze", "zoadamm-analyze", "hybrid-analyze"}:
         experiment = (
             create_cso_grid_experiment()
             if args.command == "cso-analyze"

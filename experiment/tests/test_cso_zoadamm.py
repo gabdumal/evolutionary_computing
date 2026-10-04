@@ -3,8 +3,11 @@ import numpy as np
 from optimization_experiments.algorithms.base import AlgorithmAdapter
 from optimization_experiments.algorithms.cso_zoadamm import CSOZOAdaMMAdapter
 from optimization_experiments.algorithms.cso_zoadamm_spec import (
-    CSO_ZOADAMM_DEFAULT_PARAMETERS,
+    CSO_ZOADAMM_FIXED_PARAMETERS,
+    CSO_ZOADAMM_PARAMETER_SCHEMA,
+    CSO_ZOADAMM_VALIDATED_PROFILES,
     cso_zoadamm_algorithm_specification,
+    cso_zoadamm_validated_parameters,
 )
 from optimization_experiments.core import (
     AlgorithmConfiguration,
@@ -64,8 +67,9 @@ class FakeZOAdapter(ZOAdaMMAdapter):
 
 def make_hybrid_specification(budget: int = 100):
     algorithm = cso_zoadamm_algorithm_specification()
-    configuration = AlgorithmConfiguration(algorithm, dict(algorithm.fixed_parameters))
-    scenario = BenchmarkScenario("Sphere", 3, "sphere", -5, 5)
+    parameters = cso_zoadamm_validated_parameters("happycat", 10)
+    configuration = AlgorithmConfiguration(algorithm, parameters)
+    scenario = BenchmarkScenario("HappyCat", 10, "happycat", -100, 100)
     experiment = ExperimentSpecification(
         name="hybrid-test",
         algorithm=algorithm,
@@ -77,9 +81,34 @@ def make_hybrid_specification(budget: int = 100):
     return next(experiment.iter_run_specifications())
 
 
-def test_hybrid_parameter_schema_matches_defaults():
+def test_hybrid_parameter_schema_is_complete():
     specification = cso_zoadamm_algorithm_specification()
-    assert set(specification.parameter_schema.names) == set(CSO_ZOADAMM_DEFAULT_PARAMETERS)
+    assert set(specification.parameter_schema.names) == set(CSO_ZOADAMM_PARAMETER_SCHEMA.names)
+    assert dict(specification.fixed_parameters) == CSO_ZOADAMM_FIXED_PARAMETERS
+    assert len(specification.fixed_parameters) == 1
+
+
+def test_validated_profile_matches_source_values():
+    assert len(CSO_ZOADAMM_VALIDATED_PROFILES) == 6
+    happycat_10 = cso_zoadamm_validated_parameters("happycat", 10)
+    assert happycat_10 == {
+        "cso_population_size": 15,
+        "cso_mixture_ratio": 0.1,
+        "cso_c1": 1.05,
+        "cso_smp": 2,
+        "cso_spc": False,
+        "cso_cdc": 1.0,
+        "cso_srd": 0.4,
+        "cso_max_velocity": 1.9,
+        "zoadamm_learning_rate": 0.7,
+        "zoadamm_beta1": 0.9,
+        "zoadamm_beta2": 0.99999,
+        "zoadamm_mu": 0.001,
+        "zoadamm_q": 5,
+        "zoadamm_epsilon": 1e-12,
+        "zoadamm_decay_learning_rate": True,
+        "cso_budget_fraction": 0.8,
+    }
 
 
 def test_hybrid_split_and_handoff():
@@ -91,7 +120,7 @@ def test_hybrid_split_and_handoff():
 
     assert result.function_evaluations == 100
     assert result.iterations == 6
-    assert result.objective.best_value < 3 * 0.25**2
+    assert result.objective.best_value < 3 * 0.25**2 * (10 / 3)
     assert result.convergence.function_evaluations[-1] == 100
     assert all(
         right > left
@@ -102,7 +131,7 @@ def test_hybrid_split_and_handoff():
     )
 
 
-def test_hybrid_campaign_shape():
+def test_hybrid_campaign_shape_and_scenario_specific_parameters():
     from optimization_experiments.experiments.cso_zoadamm import (
         CSO_ZOADAMM_BUDGET,
         create_cso_zoadamm_campaign_experiment,
@@ -112,4 +141,15 @@ def test_hybrid_campaign_shape():
     assert experiment.run_count == 18
     assert experiment.budget.max_function_evaluations == CSO_ZOADAMM_BUDGET
     assert experiment.seeds.seeds == (27, 32, 59)
-    assert experiment.configurations[0].parameters["cso_budget_fraction"] == 0.8
+    assert len(experiment.configurations) == 6
+    assert len(experiment.scenario_configuration_ids) == 6
+
+    expected_keys = {"happycat:10", "happycat:100", "rosenbrock:10", "rosenbrock:100", "schwefel:10", "schwefel:100"}
+    observed = {
+        f"{run.scenario.objective}:{run.scenario.dimension}": run.algorithm.parameters
+        for run in experiment.iter_run_specifications()
+    }
+    assert set(observed) == expected_keys
+    for key in expected_keys:
+        objective, dimension = key.split(":")
+        assert observed[key] == cso_zoadamm_validated_parameters(objective, int(dimension))

@@ -1,8 +1,8 @@
 from __future__ import annotations
 
-from ..core.models import AlgorithmSpecification, ParameterDefinition, ParameterSchema
-from .cso import CSO_DEFAULT_PARAMETERS
-from .zoadamm_spec import ZOADAMM_DEFAULT_PARAMETERS
+from typing import Any
+
+from ..core.models import AlgorithmConfiguration, AlgorithmSpecification, ParameterDefinition, ParameterSchema
 
 
 CSO_ZOADAMM_PARAMETER_SCHEMA = ParameterSchema(
@@ -86,31 +86,175 @@ CSO_ZOADAMM_PARAMETER_SCHEMA = ParameterSchema(
     )
 )
 
-
-CSO_ZOADAMM_DEFAULT_PARAMETERS = {
-    "cso_population_size": CSO_DEFAULT_PARAMETERS["population_size"],
-    "cso_mixture_ratio": CSO_DEFAULT_PARAMETERS["mixture_ratio"],
-    "cso_c1": CSO_DEFAULT_PARAMETERS["c1"],
-    "cso_smp": CSO_DEFAULT_PARAMETERS["smp"],
-    "cso_spc": CSO_DEFAULT_PARAMETERS["spc"],
-    "cso_cdc": CSO_DEFAULT_PARAMETERS["cdc"],
-    "cso_srd": CSO_DEFAULT_PARAMETERS["srd"],
-    "cso_max_velocity": CSO_DEFAULT_PARAMETERS["max_velocity"],
-    "zoadamm_learning_rate": ZOADAMM_DEFAULT_PARAMETERS["learning_rate"],
-    "zoadamm_beta1": ZOADAMM_DEFAULT_PARAMETERS["beta1"],
-    "zoadamm_beta2": ZOADAMM_DEFAULT_PARAMETERS["beta2"],
-    "zoadamm_mu": ZOADAMM_DEFAULT_PARAMETERS["mu"],
-    "zoadamm_q": ZOADAMM_DEFAULT_PARAMETERS["q"],
-    "zoadamm_epsilon": ZOADAMM_DEFAULT_PARAMETERS["epsilon"],
-    "zoadamm_decay_learning_rate": ZOADAMM_DEFAULT_PARAMETERS["decay_learning_rate"],
-    "cso_budget_fraction": 0.8,
+# The hybrid does not use generic CSO/ZO-AdaMM defaults.  Its six profiles below
+# are the configurations selected from the user's standalone 3-seed validation.
+# Keys are objective function + dimension.
+CSO_ZOADAMM_VALIDATED_PROFILES: dict[tuple[str, int], dict[str, Any]] = {
+    ("happycat", 10): {
+        "cso_population_size": 15,
+        "cso_mixture_ratio": 0.1,
+        "cso_c1": 1.05,
+        "cso_smp": 2,
+        "cso_spc": False,
+        "cso_cdc": 1.0,
+        "cso_srd": 0.4,
+        "cso_max_velocity": 1.9,
+        "zoadamm_learning_rate": 0.7,
+        "zoadamm_beta1": 0.9,
+        "zoadamm_beta2": 0.99999,
+        "zoadamm_mu": 0.001,
+        "zoadamm_q": 5,
+        "zoadamm_epsilon": 1e-12,
+        "zoadamm_decay_learning_rate": True,
+        "cso_budget_fraction": 0.8,
+        "source_cso_configuration_id": "cfg_5d06b752965a6774",
+        "source_zoadamm_configuration_id": "cfg_7af707503efcf31a",
+    },
+    ("happycat", 100): {
+        "cso_population_size": 15,
+        "cso_mixture_ratio": 0.3,
+        "cso_c1": 2.05,
+        "cso_smp": 2,
+        "cso_spc": False,
+        "cso_cdc": 1.0,
+        "cso_srd": 0.4,
+        "cso_max_velocity": 1.0,
+        "zoadamm_learning_rate": 1.5,
+        "zoadamm_beta1": 0.99,
+        "zoadamm_beta2": 0.9999,
+        "zoadamm_mu": 0.001,
+        "zoadamm_q": 5,
+        "zoadamm_epsilon": 1e-12,
+        "zoadamm_decay_learning_rate": True,
+        "cso_budget_fraction": 0.8,
+        "source_cso_configuration_id": "cfg_a3f9958e436d3bd0",
+        "source_zoadamm_configuration_id": "cfg_aa149cad5b2ac5a3",
+    },
+    ("rosenbrock", 10): {
+        "cso_population_size": 60,
+        "cso_mixture_ratio": 0.1,
+        "cso_c1": 1.05,
+        "cso_smp": 3,
+        "cso_spc": True,
+        "cso_cdc": 0.6,
+        "cso_srd": 0.1,
+        "cso_max_velocity": 1.0,
+        "zoadamm_learning_rate": 2.0,
+        "zoadamm_beta1": 0.9,
+        "zoadamm_beta2": 0.9999999,
+        "zoadamm_mu": 0.001,
+        "zoadamm_q": 30,
+        "zoadamm_epsilon": 1e-12,
+        "zoadamm_decay_learning_rate": True,
+        "cso_budget_fraction": 0.8,
+        "source_cso_configuration_id": "cfg_a85d8af5699deaa5",
+        "source_zoadamm_configuration_id": "cfg_31acc57f36821808",
+    },
+    ("rosenbrock", 100): {
+        "cso_population_size": 15,
+        "cso_mixture_ratio": 0.1,
+        "cso_c1": 1.05,
+        "cso_smp": 5,
+        "cso_spc": True,
+        "cso_cdc": 0.6,
+        "cso_srd": 0.1,
+        "cso_max_velocity": 1.9,
+        "zoadamm_learning_rate": 1.5,
+        "zoadamm_beta1": 0.0,
+        "zoadamm_beta2": 0.99999999,
+        "zoadamm_mu": 0.001,
+        "zoadamm_q": 5,
+        "zoadamm_epsilon": 1e-12,
+        "zoadamm_decay_learning_rate": True,
+        "cso_budget_fraction": 0.8,
+        "source_cso_configuration_id": "cfg_ac488c3496499f2d",
+        "source_zoadamm_configuration_id": "cfg_99aecedf6c529670",
+    },
+    ("schwefel", 10): {
+        "cso_population_size": 15,
+        "cso_mixture_ratio": 0.3,
+        "cso_c1": 2.05,
+        "cso_smp": 2,
+        "cso_spc": True,
+        "cso_cdc": 0.6,
+        "cso_srd": 0.1,
+        "cso_max_velocity": 3.0,
+        "zoadamm_learning_rate": 2.0,
+        "zoadamm_beta1": 0.95,
+        "zoadamm_beta2": 0.9999999,
+        "zoadamm_mu": 0.001,
+        "zoadamm_q": 40,
+        "zoadamm_epsilon": 1e-12,
+        "zoadamm_decay_learning_rate": True,
+        "cso_budget_fraction": 0.8,
+        "source_cso_configuration_id": "cfg_04e67997b94c21ed",
+        "source_zoadamm_configuration_id": "cfg_f052cb79ca98e299",
+    },
+    ("schwefel", 100): {
+        "cso_population_size": 15,
+        "cso_mixture_ratio": 0.5,
+        "cso_c1": 3.05,
+        "cso_smp": 2,
+        "cso_spc": True,
+        "cso_cdc": 0.6,
+        "cso_srd": 0.1,
+        "cso_max_velocity": 3.0,
+        "zoadamm_learning_rate": 0.7,
+        "zoadamm_beta1": 0.0,
+        "zoadamm_beta2": 0.999999,
+        "zoadamm_mu": 0.001,
+        "zoadamm_q": 10,
+        "zoadamm_epsilon": 1e-12,
+        "zoadamm_decay_learning_rate": True,
+        "cso_budget_fraction": 0.8,
+        "source_cso_configuration_id": "cfg_abd1821797cf8018",
+        "source_zoadamm_configuration_id": "cfg_f2503eee26481d7d",
+    },
 }
 
+# Only the budget split is generic at algorithm-specification level. The
+# component optimizer parameters are intentionally supplied by the scenario-
+# specific validated profiles in the hybrid experiment.
+CSO_ZOADAMM_FIXED_PARAMETERS = {
+    "cso_budget_fraction": 0.8,
+}
 
 def cso_zoadamm_algorithm_specification() -> AlgorithmSpecification:
     return AlgorithmSpecification(
         name="CSO-ZO-AdaMM",
         implementation="cso_zoadamm",
         parameter_schema=CSO_ZOADAMM_PARAMETER_SCHEMA,
-        fixed_parameters=CSO_ZOADAMM_DEFAULT_PARAMETERS,
+        fixed_parameters=CSO_ZOADAMM_FIXED_PARAMETERS,
     )
+
+
+def cso_zoadamm_validated_parameters(
+    objective_function: str,
+    dimension: int,
+) -> dict[str, Any]:
+    key = (objective_function.lower(), int(dimension))
+    try:
+        profile = dict(CSO_ZOADAMM_VALIDATED_PROFILES[key])
+    except KeyError as exc:
+        supported = ", ".join(
+            f"{objective}/{dimension}" for objective, dimension in sorted(CSO_ZOADAMM_VALIDATED_PROFILES)
+        )
+        raise KeyError(
+            f"No validated CSO-ZO-AdaMM profile for {objective_function!r}, dimension={dimension}. "
+            f"Supported profiles: {supported}."
+        ) from exc
+
+    # Source configuration IDs are metadata for traceability, not optimizer
+    # parameters passed to CSO or ZO-AdaMM.
+    profile.pop("source_cso_configuration_id")
+    profile.pop("source_zoadamm_configuration_id")
+    return profile
+
+
+def cso_zoadamm_validated_configuration(
+    algorithm: AlgorithmSpecification,
+    objective_function: str,
+    dimension: int,
+) -> AlgorithmConfiguration:
+    parameters = cso_zoadamm_validated_parameters(objective_function, dimension)
+    return AlgorithmConfiguration(algorithm=algorithm, parameters=parameters)

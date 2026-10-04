@@ -8,7 +8,7 @@ from optimization_experiments.analysis.comparison import (
 
 def _frame(algorithm: str, offset: float) -> pd.DataFrame:
     rows = []
-    for problem, dimension in (
+    for objective, dimension in (
         ("Rosenbrock", 10),
         ("Rosenbrock", 100),
         ("Schwefel", 10),
@@ -20,34 +20,38 @@ def _frame(algorithm: str, offset: float) -> pd.DataFrame:
             for seed in (27, 32, 59):
                 rows.append(
                     {
-                        "algorithm": algorithm,
-                        "problem": problem,
+                        "objective_function": objective,
                         "dimension": dimension,
                         "configuration_id": config_id,
                         "seed": seed,
                         "calculated_value": offset + extra + seed / 1000,
                         "iterations": 100 + seed,
-                        "wall_seconds": 0.5 + seed / 10000,
                         "cpu_seconds": 0.4 + seed / 10000,
                         "function_evaluations": 10_000,
                     }
                 )
-    return pd.DataFrame(rows)
+    frame = pd.DataFrame(rows)
+    frame["algorithm"] = algorithm
+    return frame
 
 
 def test_comparison_selects_one_configuration_per_algorithm_scenario():
-    comparison = analyze_algorithm_comparison(_frame("CSO", 0), _frame("ZO-AdaMM", 1))
+    comparison = analyze_algorithm_comparison(
+        {"CSO": _frame("CSO", 0), "ZO-AdaMM": _frame("ZO-AdaMM", 1)}
+    )
     assert len(comparison.table) == 12
     assert set(comparison.table["seed_count"]) == {3}
     assert set(comparison.table["configuration_id"]) == {"cfg_good"}
 
 
-def test_formatted_comparison_matches_table_columns():
-    comparison = analyze_algorithm_comparison(_frame("CSO", 0), _frame("ZO-AdaMM", 1))
+def test_formatted_comparison_matches_current_table_columns():
+    comparison = analyze_algorithm_comparison(
+        {"CSO": _frame("CSO", 0), "ZO-AdaMM": _frame("ZO-AdaMM", 1)}
+    )
     table = create_formatted_comparison_table(comparison.table)
     assert list(table.columns) == [
         "algorithm",
-        "problem",
+        "objective_function",
         "dimension",
         "configuration_id",
         "value",
