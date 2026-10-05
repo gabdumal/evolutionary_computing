@@ -1323,6 +1323,67 @@ Cada iteração custa #stress[$q + 1$] avaliações de $f$.
 
 #title_slide([Híbrido])
 
+== Proposta
+
+Híbrido #stress[sequencial]: o #strong[CSO explora] e o #strong[ZO-AdaMM refina].
+
+- O #stress[CSO] cobre o espaço com uma população, de forma global.
+- O #stress[ZO-AdaMM] segue uma direção estimada a partir de um ponto, de forma local.
+- Nos resultados isolados, cada um vence em funções diferentes.
+
+Ideia: usar o #strong[melhor gato] do CSO como #strong[ponto inicial] do ZO-AdaMM.
+
+O orçamento total é o #stress[mesmo] dos algoritmos isolados: 10_000 avaliações.
+
+#pagebreak()
+
+== Algoritmo
+
+Com orçamento total $B$ e fração $#math.rho$ para o CSO:
+
++ #strong[Divide] o orçamento:\
+  $B_"CSO" = #math.rho B$ e $B_"ZO" = (1 - #math.rho) B$.
++ Executa o #strong[CSO] com $B_"CSO"$ avaliações.
++ Passa a #strong[melhor posição] $x^*$ do CSO como ponto inicial do ZO-AdaMM.\
+  Momento $m$ e escala $v$ começam em #strong[zero].
++ Executa o #strong[ZO-AdaMM] com $B_"ZO"$ avaliações, a partir de $x^*$.
++ Retorna a #stress[melhor solução] encontrada nas duas fases.
+
+#pagebreak()
+
+== Hiperparâmetros
+
+#stress[`cso_budget_fraction`]: $#math.rho$.\ #h(leading)
+Fração do orçamento dada ao CSO.\ #h(leading)
+#strong[Fixa] em $0.8$ (80% CSO, 20% ZO-AdaMM).
+
+#stress[Parâmetros do CSO]:\ #h(leading)
+`population_size`, `mixture_ratio`, `c1`, `smp`, `spc`, `cdc`, `srd`, `max_velocity`.\ #h(leading)
+Valores da melhor configuração do #strong[CSO isolado].
+
+#stress[Parâmetros do ZO-AdaMM]:\ #h(leading)
+$#math.alpha$, $#(math.beta) _1$, $#(math.beta) _2$ e $q$.\ #h(leading)
+Valores da melhor configuração do #strong[ZO-AdaMM isolado].\ #h(leading)
+$#math.mu$ e $#math.epsilon$ seguem fixos.
+
+#pagebreak()
+
+== Protocolo
+
+#stress([#get_term("seed", plural: true, capitalize: true):]) 27, 32, 59.
+
+#stress[10_000] avaliações da função (8_000 CSO + 2_000 ZO-AdaMM).
+
+#stress[Dimensões:] 10, 100
+
+#stress[Configurações:] 6 (uma por função e dimensão)
+
+#stress[Execuções:] 18 (3 seeds)
+
+Sem nova busca de hiperparâmetros: reaproveita os melhores dos algoritmos #strong[isolados].
+
+#pagebreak()
+
 #let hybrid_comparison = (
   rosenbrock: (
     d10: (
@@ -1562,3 +1623,42 @@ Cada iteração custa #stress[$q + 1$] avaliações de $f$.
     [#strfmt("{:.4}", hybrid_comparison.happy_cat.d100.cpu_time * 1000)],
   )
 ]
+
+#pagebreak()
+
+#title_slide([Conclusão])
+
+== Resultados
+
+Nenhum algoritmo foi o melhor em #stress[todas] as funções.
+
+- #strong[CSO:] melhor no #stress[Rosenbrock] (6.3 e 98.2) e no #stress[Schwefel] com $D = 10$.
+- #strong[#get_term("zoadamm"):] melhor no #stress[HappyCat] (0.27 e 0.77) e no #stress[Schwefel] com $D = 100$, mas muito pior no Rosenbrock.
+- #strong[Híbrido:] melhora muito o CSO no HappyCat ($7.8 -> 0.84$ e $129 -> 5.7$), mas #strong[não supera] o melhor dos dois isolados em nenhum cenário.
+
+Funções #strong[suaves] favorecem o gradiente estimado.\
+Vales estreitos e funções #strong[multimodais] favorecem a população.
+
+#pagebreak()
+
+== Sensibilidade
+
+#stress[CSO:] `srd` e `cdc` dominam em todas as funções, e `mixture_ratio` no Rosenbrock. `c1` é quase irrelevante.
+
+#stress[#get_term("zoadamm"):] $#(math.beta) _2$ é o parâmetro mais influente em todas as funções, seguido de $#math.alpha$ e $q$.
+
+Nos dois, os melhores níveis ficaram na #strong[borda] do grid (`population_size` = 15, $q = 5$, $#math.alpha = 0.7$).\
+Com orçamento fixo, menos custo por iteração significa #strong[mais iterações].
+
+#pagebreak()
+
+== Limitações
+
+- 3 seeds, as mesmas na seleção e na avaliação.
+- Grids truncados nas bordas #sym.arrow definidas por análises experimentais.
+- Híbrido com parâmetros ajustados para 10_000 avaliações e com $#math.rho$ fixo em 0.8 #sym.arrow poderia fazer validaçãocom mais tempo.
+
+== Próximos passos
+
+- Variar $#math.rho$ e comparar com o CSO de 8_000 avaliações.
+- Estender os grids e usar seeds novas na avaliação final.
